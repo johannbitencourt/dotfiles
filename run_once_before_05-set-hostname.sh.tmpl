@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-desired={{ .hostname | quote }}
-if [[ -n "$desired" && "$(hostnamectl hostname)" != "$desired" ]]; then
-  sudo hostnamectl set-hostname "$desired"
-fi

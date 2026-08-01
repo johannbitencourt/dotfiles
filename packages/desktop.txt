@@ -1,4 +1,0 @@
-flatpak
-libreoffice-fresh
-mpv
-imv
