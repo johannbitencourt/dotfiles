@@ -1,0 +1,15 @@
+brave
+chromium
+flatpak
+docker
+docker-buildx
+docker-compose
+libvirt
+virt-manager
+qemu-desktop
+steam
+lutris
+godot
+libreoffice-fresh
+mpv
+imv

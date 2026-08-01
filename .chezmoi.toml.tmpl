@@ -1,0 +1,35 @@
+{{- $name := promptStringOnce . "name" "Full name" "" -}}
+{{- $email := promptStringOnce . "email" "Git email" "" -}}
+{{- $hostname := promptStringOnce . "hostname" "Hostname" .chezmoi.hostname -}}
+{{- $isLaptop := promptBoolOnce . "isLaptop" "Is this a laptop?" false -}}
+{{- $isNvidia := promptBoolOnce . "isNvidia" "Does this machine use the proprietary NVIDIA driver?" false -}}
+{{- $primaryMonitor := promptStringOnce . "primaryMonitor" "Primary monitor output (blank for automatic)" "" -}}
+{{- $disableInternalDisplay := false -}}
+{{- if $isLaptop -}}
+{{-   $disableInternalDisplay = promptBoolOnce . "disableInternalDisplay" "Disable the internal display?" false -}}
+{{- end -}}
+{{- $installPersonalApps := promptBoolOnce . "installPersonalApps" "Install the optional personal application set?" false -}}
+{{- $installGreeter := promptBoolOnce . "installGreeter" "Install and enable the DMS greeter?" true -}}
+
+[data]
+name = {{ $name | quote }}
+email = {{ $email | quote }}
+hostname = {{ $hostname | quote }}
+isLaptop = {{ $isLaptop }}
+isNvidia = {{ $isNvidia }}
+primaryMonitor = {{ $primaryMonitor | quote }}
+disableInternalDisplay = {{ $disableInternalDisplay }}
+installPersonalApps = {{ $installPersonalApps }}
+installGreeter = {{ $installGreeter }}
+terminal = "ghostty"
+browser = "brave"
+editor = "nvim"
+keyboardLayout = "us"
+keyboardVariant = "intl"
+
+[diff]
+pager = "delta"
+
+[git]
+autoCommit = false
+autoPush = false

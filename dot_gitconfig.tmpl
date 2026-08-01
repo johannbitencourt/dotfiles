@@ -1,0 +1,26 @@
+[user]
+	name = {{ .name }}
+	email = {{ .email }}
+[init]
+	defaultBranch = main
+[pull]
+	rebase = true
+[push]
+	autoSetupRemote = true
+[fetch]
+	prune = true
+[rebase]
+	autoStash = true
+[core]
+	excludesFile = ~/.config/git/ignore
+[alias]
+	co = checkout
+	br = branch
+	ci = commit
+	st = status
+	lg = log --oneline --decorate --graph
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true

@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v pacman >/dev/null 2>&1; then
+  echo "Skipping packages: this bootstrap currently supports Arch derivatives only."
+  exit 0
+fi
+
+packages=(
+  base-devel git chezmoi git-delta paru hyprland uwsm
+  networkmanager bluez bluez-utils
+  xdg-desktop-portal-hyprland xdg-desktop-portal-gtk
+  dms-shell dgop dsearch matugen
+  pipewire pipewire-alsa pipewire-pulse wireplumber
+  brightnessctl power-profiles-daemon wl-clipboard cliphist
+  polkit-gnome gnome-keyring ghostty nautilus chromium adw-gtk-theme
+  noto-fonts noto-fonts-emoji ttf-cascadia-mono-nerd
+  bash-completion neovim starship mise zoxide eza bat fd ripgrep fzf
+  jq yq git-lfs github-cli btop fastfetch lazygit lazydocker yazi tldr
+  unzip wget less man-db
+)
+
+{{- if .isNvidia }}
+packages+=(nvidia-open-dkms nvidia-utils lib32-nvidia-utils libva-nvidia-driver egl-wayland)
+{{- end }}
+
+{{- if .installPersonalApps }}
+packages+=(
+  brave chromium flatpak docker docker-buildx docker-compose
+  libvirt virt-manager qemu-desktop steam lutris godot libreoffice-fresh mpv imv
+)
+{{- end }}
+
+available=()
+for package in "${packages[@]}"; do
+  if pacman -Si "$package" >/dev/null 2>&1; then
+    available+=("$package")
+  else
+    echo "Skipping unavailable package: $package"
+  fi
+done
+
+sudo pacman -Syu --needed "${available[@]}"
+
+# Brave is the preferred browser but is distributed through the AUR.
+if ! command -v brave >/dev/null 2>&1; then
+  if command -v paru >/dev/null 2>&1; then
+    paru -S --needed brave-bin
+  else
+    echo "Install brave-bin manually or change the browser value in chezmoi data."
+  fi
+fi
+
+{{- if .installPersonalApps }}
+if command -v paru >/dev/null 2>&1; then
+  paru -S --needed zen-browser-bin spotify obsidian opencode
+fi
+{{- end }}

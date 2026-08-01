@@ -1,0 +1,18 @@
+env = XDG_CURRENT_DESKTOP,Hyprland
+env = XDG_SESSION_DESKTOP,Hyprland
+env = XDG_SESSION_TYPE,wayland
+env = QT_QPA_PLATFORM,wayland
+env = QT_QPA_PLATFORMTHEME,gtk3
+env = QT_QPA_PLATFORMTHEME_QT6,gtk3
+env = ELECTRON_OZONE_PLATFORM_HINT,auto
+env = MOZ_ENABLE_WAYLAND,1
+env = TERMINAL,{{ .terminal }}
+env = EDITOR,{{ .editor }}
+env = VISUAL,{{ .editor }}
+
+{{- if .isNvidia }}
+# Required by the proprietary NVIDIA Wayland stack.
+env = NVD_BACKEND,direct
+env = LIBVA_DRIVER_NAME,nvidia
+env = __GLX_VENDOR_LIBRARY_NAME,nvidia
+{{- end }}

@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -u
+
+failed=0
+
+check_command() {
+  if command -v "$1" >/dev/null 2>&1; then
+    printf 'ok       %s\n' "$1"
+  else
+    printf 'missing  %s\n' "$1"
+    failed=1
+  fi
+}
+
+for command in chezmoi Hyprland dms ghostty nvim starship git; do
+  check_command "$command"
+done
+
+if [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
+  if errors=$(hyprctl configerrors 2>/dev/null) && [[ -z "$errors" ]]; then
+    printf 'ok       Hyprland config\n'
+  else
+    printf 'error    Hyprland config: %s\n' "$errors"
+    failed=1
+  fi
+fi
+
+if systemctl --user is-active --quiet dms.service; then
+  printf 'ok       dms.service\n'
+else
+  printf 'inactive dms.service\n'
+  failed=1
+fi
+
+exit "$failed"

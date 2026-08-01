@@ -1,0 +1,10 @@
+{{- if .primaryMonitor }}
+monitor = {{ .primaryMonitor }}, preferred, auto, 1
+{{- if and .isLaptop .disableInternalDisplay }}
+monitor = eDP-1, disable
+{{- else if .isLaptop }}
+monitor = eDP-1, preferred, auto, 1
+{{- end }}
+{{- else }}
+monitor = , preferred, auto, 1
+{{- end }}

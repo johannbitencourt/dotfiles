@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v dms >/dev/null 2>&1; then
+  echo "DMS is not installed; skipping generated compositor configuration."
+  exit 0
+fi
+
+for component in colors layout outputs cursor windowrules; do
+  dms setup "$component"
+done
+
+{{- if .installGreeter }}
+dms greeter install
+{{- end }}

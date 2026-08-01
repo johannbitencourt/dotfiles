@@ -1,0 +1,4 @@
+export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$PATH"
+export EDITOR=nvim
+export VISUAL=nvim
+export TERMINAL=ghostty

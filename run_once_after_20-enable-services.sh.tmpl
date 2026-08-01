@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+systemctl --user daemon-reload
+systemctl --user add-wants hyprland-session.target dms.service
+
+sudo systemctl enable NetworkManager.service bluetooth.service
+
+{{- if .installPersonalApps }}
+sudo systemctl enable docker.service libvirtd.service
+sudo usermod -aG docker,libvirt "$USER"
+{{- end }}
