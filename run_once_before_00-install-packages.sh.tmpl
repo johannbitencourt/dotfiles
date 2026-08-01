@@ -6,29 +6,49 @@ if ! command -v pacman >/dev/null 2>&1; then
   exit 0
 fi
 
-packages=(
-  base-devel git chezmoi git-delta paru hyprland uwsm
-  networkmanager bluez bluez-utils
-  xdg-desktop-portal-hyprland xdg-desktop-portal-gtk
-  dms-shell dgop dsearch matugen
-  pipewire pipewire-alsa pipewire-pulse wireplumber
-  brightnessctl power-profiles-daemon wl-clipboard cliphist
-  polkit-gnome gnome-keyring ghostty nautilus chromium adw-gtk-theme
-  noto-fonts noto-fonts-emoji ttf-cascadia-mono-nerd
-  bash-completion neovim starship mise zoxide eza bat fd ripgrep fzf
-  jq yq git-lfs github-cli btop fastfetch lazygit lazydocker yazi tldr
-  unzip wget less man-db
-)
+source_dir={{ .chezmoi.sourceDir | quote }}
+packages=()
 
-{{- if .isNvidia }}
-packages+=(nvidia-open-dkms nvidia-utils lib32-nvidia-utils libva-nvidia-driver egl-wayland)
+append_manifest() {
+  local manifest=$1 package
+  while IFS= read -r package || [[ -n "$package" ]]; do
+    [[ -z "$package" || "$package" == \#* ]] && continue
+    packages+=("$package")
+  done < "$source_dir/packages/$manifest.txt"
+}
+
+append_manifest core
+append_manifest cli
+
+{{- if .isLaptop }}
+append_manifest laptop
 {{- end }}
 
-{{- if .installPersonalApps }}
-packages+=(
-  brave chromium flatpak docker docker-buildx docker-compose
-  libvirt virt-manager qemu-desktop steam lutris godot libreoffice-fresh mpv imv
-)
+{{- if .installBluetooth }}
+append_manifest bluetooth
+{{- end }}
+
+{{- if .installDevelopment }}
+append_manifest development
+{{- end }}
+
+{{- if .installVirtualization }}
+append_manifest virtualization
+{{- end }}
+
+{{- if .installGaming }}
+append_manifest gaming
+{{- if .isNvidia }}
+packages+=(lib32-nvidia-utils)
+{{- end }}
+{{- end }}
+
+{{- if .installDesktopApps }}
+append_manifest desktop
+{{- end }}
+
+{{- if or .installDesktopApps .installDevelopment .installGreeter }}
+append_manifest aur-base
 {{- end }}
 
 available=()
@@ -42,17 +62,20 @@ done
 
 sudo pacman -Syu --needed "${available[@]}"
 
-# Brave is the preferred browser but is distributed through the AUR.
-if ! command -v brave >/dev/null 2>&1; then
+aur_install() {
   if command -v paru >/dev/null 2>&1; then
-    paru -S --needed brave-bin
+    paru -S --needed "$@"
+  elif command -v yay >/dev/null 2>&1; then
+    yay -S --needed "$@"
   else
-    echo "Install brave-bin manually or change the browser value in chezmoi data."
+    echo "Skipping AUR packages (install paru or yay): $*"
   fi
-fi
+}
 
-{{- if .installPersonalApps }}
-if command -v paru >/dev/null 2>&1; then
-  paru -S --needed zen-browser-bin spotify obsidian opencode
-fi
+{{- if .installDesktopApps }}
+aur_install brave-bin zen-browser-bin spotify obsidian
+{{- end }}
+
+{{- if .installDevelopment }}
+aur_install opencode
 {{- end }}

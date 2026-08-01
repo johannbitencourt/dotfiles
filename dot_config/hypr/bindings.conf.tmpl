@@ -9,9 +9,13 @@ bindd = $mod SHIFT ALT, B, Private browser, exec, $browser --private
 bindd = $mod SHIFT, F, File manager, exec, dms ipc call defaultApp fileManager
 bindd = $mod SHIFT, N, Editor, exec, $terminal -e {{ .editor }}
 bindd = $mod SHIFT, T, Activity monitor, exec, $terminal -e btop
+{{- if .installDevelopment }}
 bindd = $mod SHIFT, D, Docker, exec, $terminal -e lazydocker
+{{- end }}
+{{- if .installDesktopApps }}
 bindd = $mod SHIFT, O, Obsidian, exec, uwsm app -- obsidian
 bindd = $mod SHIFT, M, Music, exec, uwsm app -- spotify
+{{- end }}
 
 # DMS shell
 bindd = $mod, SPACE, Application launcher, exec, dms ipc call spotlight toggle

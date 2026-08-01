@@ -30,10 +30,10 @@ chezmoi diff
 chezmoi apply
 ```
 
-The first apply prompts for identity, hardware, optional applications, and the
-DMS greeter. It installs packages, asks DMS to generate its integration files,
-and connects DMS to the Hyprland user-session target. Selecting the greeter
-runs the official `dms greeter install` flow, which configures greetd.
+The first apply prompts for identity, hardware, optional package profiles, and
+the DMS greeter. It installs packages, asks DMS to generate its integration
+files, and connects DMS to the Hyprland user-session target. Selecting the
+greeter runs the official `dms greeter install` flow, which configures greetd.
 
 Reboot after the initial apply. At the next session, customize bars, displays,
 wallpaper, sleep, and theme from DMS Settings. Those runtime values are not
@@ -66,13 +66,27 @@ Use `chezmoi data` to inspect machine values. Change them in the local chezmoi
 config and re-run `chezmoi apply`; do not hardcode hardware values in tracked
 files.
 
-## Optional AUR applications
+## Package profiles
 
-The bootstrap installs only packages available through configured pacman
-repositories. Install personal AUR applications separately as needed:
+The default installation is intentionally limited to Hyprland, DMS, audio,
+networking, portals, the configured terminal/editor/file manager, and the CLI
+tools referenced by these dotfiles. Additional prompts control independent
+profiles:
 
-```bash
-paru -S brave-bin zen-browser-bin spotify obsidian opencode
-```
-# dotfiles
-# dotfiles
+| Profile | Packages |
+|---|---|
+| Bluetooth | `bluez`, `bluez-utils` |
+| Laptop | `brightnessctl`, `power-profiles-daemon` |
+| Development | Docker, Godot, GitHub CLI, lazygit/lazydocker, jq/yq, OpenCode |
+| Virtualization | QEMU, libvirt, virt-manager, swtpm, dnsmasq |
+| Gaming | Steam, Lutris, GameMode, Gamescope, MangoHud |
+| Desktop apps | Brave, Zen, Spotify, Obsidian, LibreOffice, mpv, imv, Flatpak |
+
+Steam and Lutris are never installed unless the gaming profile is selected.
+GPU kernel drivers are never installed by chezmoi; CachyOS owns kernel and
+driver selection. The gaming profile adds `lib32-nvidia-utils` only on an
+NVIDIA machine because Steam needs the matching 32-bit userspace libraries.
+
+AUR packages use `paru` or `yay` when available. Missing optional packages are
+reported and skipped. A selected DMS greeter stops with a clear error when no
+AUR helper is available because silently omitting the login manager is unsafe.

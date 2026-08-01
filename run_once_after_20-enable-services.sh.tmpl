@@ -4,9 +4,24 @@ set -euo pipefail
 systemctl --user daemon-reload
 systemctl --user add-wants hyprland-session.target dms.service
 
-sudo systemctl enable NetworkManager.service bluetooth.service
+sudo systemctl enable NetworkManager.service
 
-{{- if .installPersonalApps }}
-sudo systemctl enable docker.service libvirtd.service
-sudo usermod -aG docker,libvirt "$USER"
+{{- if .installBluetooth }}
+if systemctl cat bluetooth.service >/dev/null 2>&1; then
+  sudo systemctl enable bluetooth.service
+fi
+{{- end }}
+
+{{- if .installDevelopment }}
+if systemctl cat docker.service >/dev/null 2>&1; then
+  sudo systemctl enable docker.service
+  sudo usermod -aG docker "$USER"
+fi
+{{- end }}
+
+{{- if .installVirtualization }}
+if systemctl cat libvirtd.service >/dev/null 2>&1; then
+  sudo systemctl enable libvirtd.service
+  sudo usermod -aG libvirt "$USER"
+fi
 {{- end }}

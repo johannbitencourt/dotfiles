@@ -8,8 +8,16 @@
 {{- if $isLaptop -}}
 {{-   $disableInternalDisplay = promptBoolOnce . "disableInternalDisplay" "Disable the internal display?" false -}}
 {{- end -}}
-{{- $installPersonalApps := promptBoolOnce . "installPersonalApps" "Install the optional personal application set?" false -}}
+{{- $installBluetooth := promptBoolOnce . "installBluetooth" "Install and enable Bluetooth?" $isLaptop -}}
+{{- $installDevelopment := promptBoolOnce . "installDevelopment" "Install development tools and Docker?" false -}}
+{{- $installVirtualization := promptBoolOnce . "installVirtualization" "Install QEMU/libvirt virtualization?" false -}}
+{{- $installGaming := promptBoolOnce . "installGaming" "Install Steam, Lutris, and gaming tools?" false -}}
+{{- $installDesktopApps := promptBoolOnce . "installDesktopApps" "Install optional desktop applications?" false -}}
 {{- $installGreeter := promptBoolOnce . "installGreeter" "Install and enable the DMS greeter?" true -}}
+{{- $browser := "chromium" -}}
+{{- if $installDesktopApps -}}
+{{-   $browser = "brave" -}}
+{{- end -}}
 
 [data]
 name = {{ $name | quote }}
@@ -19,10 +27,14 @@ isLaptop = {{ $isLaptop }}
 isNvidia = {{ $isNvidia }}
 primaryMonitor = {{ $primaryMonitor | quote }}
 disableInternalDisplay = {{ $disableInternalDisplay }}
-installPersonalApps = {{ $installPersonalApps }}
+installBluetooth = {{ $installBluetooth }}
+installDevelopment = {{ $installDevelopment }}
+installVirtualization = {{ $installVirtualization }}
+installGaming = {{ $installGaming }}
+installDesktopApps = {{ $installDesktopApps }}
 installGreeter = {{ $installGreeter }}
 terminal = "ghostty"
-browser = "brave"
+browser = {{ $browser | quote }}
 editor = "nvim"
 keyboardLayout = "us"
 keyboardVariant = "intl"

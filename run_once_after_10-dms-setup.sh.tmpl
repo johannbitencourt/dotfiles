@@ -11,5 +11,10 @@ for component in colors layout outputs cursor windowrules; do
 done
 
 {{- if .installGreeter }}
-dms greeter install
+if command -v paru >/dev/null 2>&1 || command -v yay >/dev/null 2>&1; then
+  dms greeter install
+else
+  echo "DMS greeter installation requires paru or yay on Arch." >&2
+  exit 1
+fi
 {{- end }}
