@@ -14,6 +14,7 @@ return {
   },
   {
     "nvim-telescope/telescope.nvim",
+    dependencies = { "nvim-lua/plenary.nvim" },
     keys = {
       { "<leader>ff", "<cmd>Telescope find_files<cr>", desc = "Find files" },
       { "<leader>fg", "<cmd>Telescope live_grep<cr>", desc = "Live grep" },
@@ -25,6 +26,9 @@ return {
     "ThePrimeagen/harpoon",
     branch = "harpoon2",
     dependencies = { "nvim-lua/plenary.nvim" },
+    config = function()
+      require("harpoon"):setup()
+    end,
     keys = {
       { "<leader>ha", function() require("harpoon"):list():add() end, desc = "Harpoon add" },
       {
@@ -55,9 +59,9 @@ return {
   },
   {
     "neovim/nvim-lspconfig",
-    opts = { servers = { tsserver = false } },
+    opts = { servers = { ts_ls = false, vtsls = false } },
   },
-  { "echasnovski/mini.pairs", enabled = false },
+  { "nvim-mini/mini.pairs", enabled = false },
   { "windwp/nvim-autopairs", event = "InsertEnter", opts = {} },
   { "akinsho/bufferline.nvim", enabled = false },
 }

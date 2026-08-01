@@ -5,7 +5,6 @@ window-padding-x = 14
 window-padding-y = 14
 window-decoration = false
 background-opacity = 0.98
-term = xterm-256color
 
 # DMS generates this theme through matugen.
 theme = dankcolors
@@ -22,4 +21,3 @@ keybind = super+control+shift+alt+arrow_left=resize_split:left,100
 keybind = super+control+shift+alt+arrow_right=resize_split:right,100
 
 mouse-scroll-multiplier = 0.95
-async-backend = epoll

@@ -1,6 +1,8 @@
 # Return immediately for non-interactive shells.
 [[ $- != *i* ]] && return
 
+export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$PATH"
+
 [[ -r /usr/share/bash-completion/bash_completion ]] && source /usr/share/bash-completion/bash_completion
 
 export EDITOR=nvim

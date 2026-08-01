@@ -1,18 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if ! command -v dms >/dev/null 2>&1; then
-  echo "DMS is not installed; skipping generated compositor configuration."
-  exit 0
-fi
-
-for component in colors outputs layout cursor binds windowrules; do
-  target="$HOME/.config/hypr/dms/$component.lua"
-  if [[ ! -s "$target" ]]; then
-    dms setup "$component"
-  fi
-done
-
 {{- if .installGreeter }}
 if pacman -Q greetd-dms-greeter-bin >/dev/null 2>&1 || pacman -Q greetd-dms-greeter-git >/dev/null 2>&1; then
   dms greeter enable
@@ -21,4 +9,6 @@ else
   echo "DMS greeter package is missing. Install greetd-dms-greeter-bin, then re-run chezmoi apply." >&2
   exit 1
 fi
+{{- else }}
+echo "DMS greeter not selected; existing display-manager state is unchanged."
 {{- end }}

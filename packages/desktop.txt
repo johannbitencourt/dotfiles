@@ -2,3 +2,4 @@ flatpak
 libreoffice-fresh
 mpv
 imv
+obsidian

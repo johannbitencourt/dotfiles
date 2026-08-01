@@ -12,9 +12,43 @@ check_command() {
   fi
 }
 
+check_file() {
+  if [[ -s "$1" ]]; then
+    printf 'ok       %s\n' "$1"
+  else
+    printf 'missing  %s\n' "$1"
+    failed=1
+  fi
+}
+
 for command in chezmoi Hyprland dms ghostty nvim starship git; do
   check_command "$command"
 done
+
+for module in colors outputs layout cursor binds windowrules; do
+  check_file "$HOME/.config/hypr/dms/$module.lua"
+done
+
+if Hyprland --verify-config --config "$HOME/.config/hypr/hyprland.lua" >/dev/null 2>&1; then
+  printf 'ok       Hyprland config\n'
+else
+  printf 'error    Hyprland config\n'
+  failed=1
+fi
+
+if ghostty +validate-config >/dev/null 2>&1; then
+  printf 'ok       Ghostty config\n'
+else
+  printf 'error    Ghostty config\n'
+  failed=1
+fi
+
+if systemd-analyze --user verify "$HOME/.config/systemd/user/hyprland-session.target" >/dev/null 2>&1; then
+  printf 'ok       hyprland-session.target\n'
+else
+  printf 'error    hyprland-session.target\n'
+  failed=1
+fi
 
 if [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
   if errors=$(hyprctl configerrors 2>/dev/null) && [[ -z "$errors" ]]; then

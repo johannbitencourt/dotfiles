@@ -3,7 +3,5 @@ yq
 github-cli
 lazygit
 lazydocker
-docker
-docker-buildx
-docker-compose
 godot
+opencode

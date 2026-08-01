@@ -1,11 +1,11 @@
 return {
   {
     "Mathijs-Bakker/godotdev.nvim",
-    ft = { "gdscript", "gd", "tscn" },
+    ft = { "gdscript", "gdshader", "gdresource" },
     dependencies = {
-      { "mfussenegger/nvim-dap", lazy = false },
-      { "nvim-neotest/nvim-nio", lazy = false },
-      { "rcarriga/nvim-dap-ui", lazy = false, opts = {} },
+      "mfussenegger/nvim-dap",
+      "nvim-neotest/nvim-nio",
+      { "rcarriga/nvim-dap-ui", opts = {} },
       "nvim-treesitter/nvim-treesitter",
     },
     opts = { csharp = false },

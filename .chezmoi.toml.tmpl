@@ -2,33 +2,25 @@
 {{- $email := promptStringOnce . "email" "Git email" "" -}}
 {{- $hostname := promptStringOnce . "hostname" "Hostname" .chezmoi.hostname -}}
 {{- $isLaptop := promptBoolOnce . "isLaptop" "Is this a laptop?" false -}}
-{{- $isNvidia := promptBoolOnce . "isNvidia" "Does this machine use the proprietary NVIDIA driver?" false -}}
-{{- $primaryMonitor := promptStringOnce . "primaryMonitor" "Primary monitor output (blank for automatic)" "" -}}
-{{- $disableInternalDisplay := false -}}
-{{- if $isLaptop -}}
-{{-   $disableInternalDisplay = promptBoolOnce . "disableInternalDisplay" "Disable the internal display?" false -}}
-{{- end -}}
+{{- $performanceMode := promptBoolOnce . "performanceMode" "Disable Hyprland animations, blur, and shadows for maximum efficiency?" true -}}
 {{- $installBluetooth := promptBoolOnce . "installBluetooth" "Install and enable Bluetooth?" $isLaptop -}}
-{{- $installDevelopment := promptBoolOnce . "installDevelopment" "Install development tools and Docker?" false -}}
+{{- $installDevelopment := promptBoolOnce . "installDevelopment" "Install development tools?" false -}}
+{{- $installDocker := promptBoolOnce . "installDocker" "Install Docker and grant root-equivalent docker group access?" false -}}
 {{- $installVirtualization := promptBoolOnce . "installVirtualization" "Install QEMU/libvirt virtualization?" false -}}
 {{- $installGaming := promptBoolOnce . "installGaming" "Install Steam, Lutris, and gaming tools?" false -}}
 {{- $installDesktopApps := promptBoolOnce . "installDesktopApps" "Install optional desktop applications?" false -}}
-{{- $installGreeter := promptBoolOnce . "installGreeter" "Install and enable the DMS greeter?" true -}}
-{{- $browser := "chromium" -}}
-{{- if $installDesktopApps -}}
-{{-   $browser = "brave" -}}
-{{- end -}}
+{{- $installGreeter := promptBoolOnce . "installGreeter" "Install DMS greeter and replace the current display manager?" false -}}
+{{- $browser := promptStringOnce . "browser" "Browser command" "chromium" -}}
 
 [data]
 name = {{ $name | quote }}
 email = {{ $email | quote }}
 hostname = {{ $hostname | quote }}
 isLaptop = {{ $isLaptop }}
-isNvidia = {{ $isNvidia }}
-primaryMonitor = {{ $primaryMonitor | quote }}
-disableInternalDisplay = {{ $disableInternalDisplay }}
+performanceMode = {{ $performanceMode }}
 installBluetooth = {{ $installBluetooth }}
 installDevelopment = {{ $installDevelopment }}
+installDocker = {{ $installDocker }}
 installVirtualization = {{ $installVirtualization }}
 installGaming = {{ $installGaming }}
 installDesktopApps = {{ $installDesktopApps }}

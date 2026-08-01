@@ -10,7 +10,7 @@ vendor CachyOS, Hyprland, or DankMaterialShell defaults.
 - DMS owns its settings and generated files under `~/.config/DankMaterialShell`
   and `~/.config/hypr/dms`.
 - Chezmoi owns stable personal configuration around those generated files.
-- Machine-specific monitor and NVIDIA settings are rendered from chezmoi data.
+- DMS owns machine-specific display profiles; CachyOS owns GPU drivers.
 
 Waybar, Walker, Mako, SwayOSD, and Omarchy are intentionally absent. DMS
 provides the bar, launcher, notifications, OSD, lock screen, wallpaper,
@@ -21,7 +21,7 @@ clipboard, process list, and power UI.
 Install CachyOS Minimal without a desktop, connect to the network, then run:
 
 ```bash
-sudo pacman -S --needed git chezmoi
+sudo pacman -S --needed git chezmoi git-delta
 sudo mkdir /dotfiles
 sudo chown "$USER:$USER" /dotfiles
 git clone <repository-url> /dotfiles
@@ -30,11 +30,19 @@ chezmoi diff
 chezmoi apply
 ```
 
-The first apply prompts for identity, hardware, optional package profiles, and
-the DMS greeter. It installs packages, asks DMS to generate its integration
-files, and connects DMS to the Hyprland user-session target. Selecting the
-greeter installs its Arch package, then runs `dms greeter enable` and
-`dms greeter sync` to configure greetd.
+`chezmoi init` prompts for identity, performance preference, and optional
+package profiles. Maximum-efficiency mode disables Hyprland animations, blur,
+and shadows by default; choose `false` to retain those visual effects. The apply
+installs packages, asks DMS to generate its integration files, and connects DMS
+to the Hyprland user-session target. The greeter is disabled by default because
+enabling it replaces the current display manager with greetd.
+
+The apply performs a full system upgrade, can change the hostname, enables
+selected system services, and can add the user to privileged Docker/libvirt
+groups. Review `chezmoi apply --dry-run --verbose` before applying. On an
+existing installation, back up `~/.config/hypr` first. The legacy migration
+only removes `.conf` files carrying this repository's previous ownership marker
+and saves them under `~/.config/hypr/legacy-conf-backup`.
 
 Reboot after the initial apply. At the next session, customize bars, displays,
 wallpaper, sleep, and theme from DMS Settings. Those runtime values are not
@@ -78,16 +86,21 @@ profiles:
 |---|---|
 | Bluetooth | `bluez`, `bluez-utils` |
 | Laptop | `brightnessctl`, `power-profiles-daemon` |
-| Development | Docker, Godot, GitHub CLI, lazygit/lazydocker, jq/yq, OpenCode |
-| Virtualization | QEMU, libvirt, virt-manager, swtpm, dnsmasq |
+| Development | Godot, GitHub CLI, lazygit/lazydocker, jq/yq, OpenCode |
+| Docker | Docker Engine, Buildx, Compose, root-equivalent group access, socket-activated daemon |
+| Virtualization | QEMU, socket-activated libvirt, virt-manager, swtpm, dnsmasq |
 | Gaming | Steam, Lutris, GameMode, Gamescope, MangoHud |
 | Desktop apps | Brave, Zen, Spotify, Obsidian, LibreOffice, mpv, imv, Flatpak |
 
 Steam and Lutris are never installed unless the gaming profile is selected.
-GPU kernel drivers are never installed by chezmoi; CachyOS owns kernel and
-driver selection. The gaming profile adds `lib32-nvidia-utils` only on an
-NVIDIA machine because Steam needs the matching 32-bit userspace libraries.
+GPU drivers, including matching 32-bit gaming libraries, are never selected by
+chezmoi. CachyOS owns the kernel and driver branch. Confirm the correct Vulkan
+and 32-bit driver stack before enabling the gaming profile.
 
-AUR packages use `paru` or `yay` when available. Missing optional packages are
-reported and skipped. A selected DMS greeter stops with a clear error when no
-AUR helper is available because silently omitting the login manager is unsafe.
+AUR packages use `paru` or `yay`. A selected AUR-backed profile fails clearly
+when no helper is available; selected repository packages also fail rather than
+leaving a partially installed desktop.
+
+Package profiles are install-only. Turning a profile off later does not remove
+packages, revoke group membership, disable an existing greeter, or undo system
+configuration automatically.
