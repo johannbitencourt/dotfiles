@@ -72,6 +72,10 @@ aur_install() {
   fi
 }
 
+{{- if .installGreeter }}
+aur_install greetd-dms-greeter-bin
+{{- end }}
+
 {{- if .installDesktopApps }}
 aur_install brave-bin zen-browser-bin spotify obsidian
 {{- end }}

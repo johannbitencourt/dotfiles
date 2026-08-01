@@ -33,7 +33,8 @@ chezmoi apply
 The first apply prompts for identity, hardware, optional package profiles, and
 the DMS greeter. It installs packages, asks DMS to generate its integration
 files, and connects DMS to the Hyprland user-session target. Selecting the
-greeter runs the official `dms greeter install` flow, which configures greetd.
+greeter installs its Arch package, then runs `dms greeter enable` and
+`dms greeter sync` to configure greetd.
 
 Reboot after the initial apply. At the next session, customize bars, displays,
 wallpaper, sleep, and theme from DMS Settings. Those runtime values are not

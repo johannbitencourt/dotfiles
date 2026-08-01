@@ -6,15 +6,19 @@ if ! command -v dms >/dev/null 2>&1; then
   exit 0
 fi
 
-for component in colors layout outputs cursor windowrules; do
-  dms setup "$component"
+for component in colors outputs layout cursor binds windowrules; do
+  target="$HOME/.config/hypr/dms/$component.lua"
+  if [[ ! -s "$target" ]]; then
+    dms setup "$component"
+  fi
 done
 
 {{- if .installGreeter }}
-if command -v paru >/dev/null 2>&1 || command -v yay >/dev/null 2>&1; then
-  dms greeter install
+if pacman -Q greetd-dms-greeter-bin >/dev/null 2>&1 || pacman -Q greetd-dms-greeter-git >/dev/null 2>&1; then
+  dms greeter enable
+  dms greeter sync
 else
-  echo "DMS greeter installation requires paru or yay on Arch." >&2
+  echo "DMS greeter package is missing. Install greetd-dms-greeter-bin, then re-run chezmoi apply." >&2
   exit 1
 fi
 {{- end }}
