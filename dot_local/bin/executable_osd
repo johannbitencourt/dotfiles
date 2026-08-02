@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# Volume, microphone, and brightness control.
+#
+# Feedback is drawn by the notification daemon that the session already runs,
+# which avoids a second resident process for on-screen display. The synchronous
+# hint makes each notification replace the previous one instead of stacking.
+set -euo pipefail
+
+sink=@DEFAULT_AUDIO_SINK@
+source=@DEFAULT_AUDIO_SOURCE@
+
+notify() {
+  notify-send --expire-time=1500 \
+    --hint=string:x-canonical-private-synchronous:osd \
+    --hint="int:value:$2" "$1"
+}
+
+# wpctl prints "Volume: 0.20" or "Volume: 0.20 [MUTED]".
+level() {
+  wpctl get-volume "$1" | awk '{ printf "%d", $2 * 100 }'
+}
+
+muted() {
+  wpctl get-volume "$1" | grep -q MUTED
+}
+
+report() {
+  local device=$1 label=$2
+  if muted "$device"; then
+    notify "$label muted" 0
+  else
+    notify "$label $(level "$device")%" "$(level "$device")"
+  fi
+}
+
+brightness() {
+  brightnessctl --machine-readable info | cut -d, -f4 | tr -d '%'
+}
+
+case "${1:-}" in
+  volume-up)
+    wpctl set-volume --limit 1.0 "$sink" 5%+
+    report "$sink" Volume
+    ;;
+  volume-down)
+    wpctl set-volume "$sink" 5%-
+    report "$sink" Volume
+    ;;
+  volume-mute)
+    wpctl set-mute "$sink" toggle
+    report "$sink" Volume
+    ;;
+  mic-mute)
+    wpctl set-mute "$source" toggle
+    report "$source" Microphone
+    ;;
+  brightness-up)
+    brightnessctl set 5%+ >/dev/null
+    notify "Brightness $(brightness)%" "$(brightness)"
+    ;;
+  brightness-down)
+    brightnessctl set 5%- >/dev/null
+    notify "Brightness $(brightness)%" "$(brightness)"
+    ;;
+  *)
+    echo "usage: osd {volume-up|volume-down|volume-mute|mic-mute|brightness-up|brightness-down}" >&2
+    exit 2
+    ;;
+esac

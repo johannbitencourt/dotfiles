@@ -12,58 +12,26 @@ check_command() {
   fi
 }
 
-check_file() {
-  if [[ -s "$1" ]]; then
-    printf 'ok       %s\n' "$1"
-  else
-    printf 'missing  %s\n' "$1"
-    failed=1
-  fi
-}
-
-for command in chezmoi Hyprland dms ghostty nvim starship git; do
+for command in chezmoi Hyprland uwsm foot fuzzel mako hypridle hyprlock waybar \
+  tuigreet wpctl notify-send grim slurp wl-copy nvim git \
+  osd polkit-agent screenshot-full screenshot-region; do
   check_command "$command"
 done
 
-for module in colors outputs layout cursor binds windowrules; do
-  check_file "$HOME/.config/hypr/dms/$module.lua"
-done
-
-if Hyprland --verify-config --config "$HOME/.config/hypr/hyprland.lua" >/dev/null 2>&1; then
-  printf 'ok       Hyprland config\n'
+if Hyprland --verify-config --config "$HOME/.config/hypr/hyprland.conf" >/dev/null 2>&1; then
+  printf 'ok       hyprland.conf parses\n'
 else
-  printf 'error    Hyprland config\n'
-  failed=1
-fi
-
-if ghostty +validate-config >/dev/null 2>&1; then
-  printf 'ok       Ghostty config\n'
-else
-  printf 'error    Ghostty config\n'
-  failed=1
-fi
-
-if systemd-analyze --user verify "$HOME/.config/systemd/user/hyprland-session.target" >/dev/null 2>&1; then
-  printf 'ok       hyprland-session.target\n'
-else
-  printf 'error    hyprland-session.target\n'
+  printf 'error    hyprland.conf parses\n'
   failed=1
 fi
 
 if [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
   if errors=$(hyprctl configerrors 2>/dev/null) && [[ -z "$errors" ]]; then
-    printf 'ok       Hyprland config\n'
+    printf 'ok       running session reports no config errors\n'
   else
-    printf 'error    Hyprland config: %s\n' "$errors"
+    printf 'error    running session config errors: %s\n' "$errors"
     failed=1
   fi
-fi
-
-if systemctl --user is-active --quiet dms.service; then
-  printf 'ok       dms.service\n'
-else
-  printf 'inactive dms.service\n'
-  failed=1
 fi
 
 exit "$failed"

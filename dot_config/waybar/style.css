@@ -1,0 +1,46 @@
+* {
+  border: none;
+  border-radius: 0;
+  min-height: 0;
+  font-family: "CaskaydiaMono Nerd Font", monospace;
+  font-size: 11px;
+}
+
+window#waybar {
+  background: #11111b;
+  color: #cdd6f4;
+  border-bottom: 1px solid #313244;
+}
+
+#workspaces button {
+  min-width: 24px;
+  padding: 0 4px;
+  color: #6c7086;
+  background: transparent;
+}
+
+#workspaces button.active {
+  color: #11111b;
+  background: #89b4fa;
+}
+
+#workspaces button.urgent {
+  color: #11111b;
+  background: #f38ba8;
+}
+
+#clock,
+#wireplumber,
+#network,
+#battery {
+  padding: 0 8px;
+}
+
+#battery.warning {
+  color: #f9e2af;
+}
+
+#battery.critical,
+#network.disconnected {
+  color: #f38ba8;
+}

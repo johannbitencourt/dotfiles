@@ -1,0 +1,43 @@
+{
+  "layer": "top",
+  "position": "top",
+  "height": 24,
+  "spacing": 10,
+  "modules-left": ["hyprland/workspaces"],
+  "modules-center": ["clock"],
+  "modules-right": ["wireplumber", "network"{{ if .isLaptop }}, "battery"{{ end }}],
+
+  "hyprland/workspaces": {
+    "format": "{name}",
+    "sort-by-number": true,
+    "persistent-workspaces": {
+      "*": 5
+    }
+  },
+  "clock": {
+    "format": "{:%a %d %b  %H:%M}",
+    "tooltip": false
+  },
+  "wireplumber": {
+    "format": "VOL {volume}%",
+    "format-muted": "VOL muted",
+    "max-volume": 100,
+    "tooltip": false,
+    "on-click": "osd volume-mute"
+  },
+  "network": {
+    "format-wifi": "{essid} {signalStrength}%",
+    "format-ethernet": "ETH",
+    "format-disconnected": "offline",
+    "tooltip": false
+  }{{ if .isLaptop }},
+  "battery": {
+    "format": "BAT {capacity}%",
+    "format-charging": "BAT +{capacity}%",
+    "states": {
+      "warning": 25,
+      "critical": 10
+    },
+    "tooltip": false
+  }{{ end }}
+}

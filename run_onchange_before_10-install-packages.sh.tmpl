@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+{{ $manifests := list "core" "cli" -}}
+{{- if .isLaptop }}{{ $manifests = append $manifests "laptop" }}{{ end -}}
+{{- if .installBluetooth }}{{ $manifests = append $manifests "bluetooth" }}{{ end -}}
+{{- if .installDevelopment }}{{ $manifests = append $manifests "development" }}{{ end -}}
+{{- if .installDocker }}{{ $manifests = append $manifests "docker" }}{{ end -}}
+{{- if .installVirtualization }}{{ $manifests = append $manifests "virtualization" }}{{ end -}}
+{{- if .installGaming }}{{ $manifests = append $manifests "gaming" }}{{ end -}}
+{{- if .installDesktopApps }}{{ $manifests = concat $manifests (list "desktop" "aur-base") }}{{ end -}}
+{{- $aurManifests := list -}}
+{{- if .installDesktopApps }}{{ $aurManifests = append $aurManifests "desktop-aur" }}{{ end -}}
+if ! command -v pacman >/dev/null 2>&1; then
+  echo "This bootstrap requires CachyOS or another pacman-based Arch system." >&2
+  echo "The desktop configuration itself is distribution-agnostic; install the" >&2
+  echo "equivalents of packages/core.txt by hand and re-run chezmoi apply." >&2
+  exit 1
+fi
+
+source_dir={{ .chezmoi.sourceDir | quote }}
+
+# Selected manifest contents are embedded so only relevant profile changes
+# rerun this script.
+{{- range concat $manifests $aurManifests }}
+{{ include (printf "packages/%s.txt" .) | ensureLinePrefix (printf "# %s: " .) -}}
+{{- end }}
+
+# A manifest with no package lines makes grep exit 1, which would otherwise
+# abort the subshell below and silently truncate the package list.
+read_manifest() {
+  local file="$source_dir/packages/$1.txt"
+  [[ -r "$file" ]] || { echo "Missing package manifest: $file" >&2; return 1; }
+  grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "$file" || [[ $? -eq 1 ]]
+}
+
+mapfile -t packages < <(
+  for manifest in {{ $manifests | join " " }}; do read_manifest "$manifest"; done
+)
+
+if [[ ${#packages[@]} -eq 0 ]]; then
+  echo "No packages resolved from the selected manifests. Refusing to continue." >&2
+  exit 1
+fi
+
+# The browser prompt names a command, so install it only when that name is also
+# an official repository package. AUR browsers and Flatpaks stay the user's own
+# responsibility rather than failing the whole bootstrap.
+browser={{ .browser | quote }}
+if pacman -Sp "$browser" >/dev/null 2>&1; then
+  packages+=("$browser")
+else
+  echo "Note: '$browser' is not an official repository package." >&2
+  echo "Install it yourself; the SUPER+SHIFT+B binding expects it on PATH." >&2
+fi
+
+# Arch does not support partial upgrades, so the sync and the install are one
+# transaction. This also refreshes the databases the checks below rely on.
+sudo pacman -Syu --needed "${packages[@]}"
+
+{{- if .installGaming }}
+
+if ! pacman -Si steam >/dev/null 2>&1; then
+  echo "Gaming requires Arch's [multilib] repository. Enable it and re-apply." >&2
+  exit 1
+fi
+{{- end }}
+
+{{- if .installDesktopApps }}
+
+mapfile -t aur_packages < <(
+  for manifest in {{ $aurManifests | join " " }}; do read_manifest "$manifest"; done
+)
+
+if [[ ${#aur_packages[@]} -eq 0 ]]; then
+  echo "No AUR packages resolved from packages/desktop-aur.txt. Refusing to continue." >&2
+  exit 1
+fi
+
+if command -v paru >/dev/null 2>&1; then
+  aur_helper=paru
+elif command -v yay >/dev/null 2>&1; then
+  aur_helper=yay
+else
+  echo "Desktop applications require a preinstalled paru or yay AUR helper." >&2
+  exit 1
+fi
+
+if ! "$aur_helper" -Si "${aur_packages[@]}" >/dev/null 2>&1; then
+  echo "At least one selected AUR package is unavailable. Review packages/desktop-aur.txt." >&2
+  exit 1
+fi
+
+"$aur_helper" -S --needed "${aur_packages[@]}"
+{{- end }}

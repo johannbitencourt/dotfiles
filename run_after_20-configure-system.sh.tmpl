@@ -1,0 +1,187 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+{{ include "system/greetd/config.toml" | ensureLinePrefix "# greetd: " -}}
+{{- if eq .browser "chromium" }}
+{{ include "system/chromium/no-password-manager.json" | ensureLinePrefix "# chromium: " -}}
+{{- end }}
+{{- if .manageMinimalNetwork }}
+{{ include "system/network/20-ethernet.network" | ensureLinePrefix "# ethernet: " -}}
+{{ include "system/network/20-wlan.network" | ensureLinePrefix "# wlan: " -}}
+{{ include "system/iwd/main.conf" | ensureLinePrefix "# iwd: " -}}
+{{- end }}
+
+source_dir={{ .chezmoi.sourceDir | quote }}
+current_user=$(id -un)
+
+fail() {
+  echo "$*" >&2
+  exit 1
+}
+
+install_if_changed() {
+  local source=$1 destination=$2
+  if file_needs_install "$source" "$destination"; then
+    sudo install -Dm644 "$source" "$destination"
+  fi
+}
+
+file_needs_install() {
+  local source=$1 destination=$2
+  [[ -f "$destination" ]] || return 0
+  cmp -s "$source" "$destination" || return 0
+  [[ $(stat -c '%U:%G:%a' "$destination") == root:root:644 ]] || return 0
+  return 1
+}
+
+enable_unit() {
+  if ! systemctl is-enabled --quiet "$1" 2>/dev/null; then
+    sudo systemctl enable "$1"
+  fi
+}
+
+disable_unit() {
+  if systemctl is-enabled --quiet "$1" 2>/dev/null; then
+    sudo systemctl disable "$1"
+  fi
+}
+
+enable_now_unit() {
+  if ! systemctl is-enabled --quiet "$1" 2>/dev/null || ! systemctl is-active --quiet "$1" 2>/dev/null; then
+    sudo systemctl enable --now "$1"
+  fi
+}
+
+# Complete every preflight before changing files, links, groups, or units.
+display_manager=$(systemctl show -p FragmentPath --value display-manager.service 2>/dev/null || true)
+if [[ -n "$display_manager" && "$display_manager" != /usr/lib/systemd/system/greetd.service ]]; then
+  fail "Refusing to replace the existing display manager: $display_manager"
+fi
+for unit in sddm.service gdm.service lightdm.service ly.service; do
+  if systemctl is-enabled --quiet "$unit" 2>/dev/null; then
+    fail "Refusing to enable greetd while $unit is enabled. Disable it explicitly first."
+  fi
+done
+systemctl cat greetd.service >/dev/null 2>&1 || fail "greetd.service is missing."
+
+{{- if .manageMinimalNetwork }}
+for unit in NetworkManager.service connman.service dhcpcd.service wpa_supplicant.service; do
+  if systemctl is-enabled --quiet "$unit" 2>/dev/null || systemctl is-active --quiet "$unit" 2>/dev/null; then
+    fail "Minimal networking was selected, but $unit is configured. Migrate it explicitly first."
+  fi
+done
+if systemctl list-unit-files 'netctl*.service' --state=enabled --no-legend 2>/dev/null | grep -q .; then
+  fail "Minimal networking was selected, but netctl is enabled."
+fi
+resolver=/run/systemd/resolve/stub-resolv.conf
+if [[ -e /etc/resolv.conf || -L /etc/resolv.conf ]] && [[ $(readlink -f /etc/resolv.conf) != "$resolver" ]]; then
+  fail "Refusing to replace the existing /etc/resolv.conf. Migrate it explicitly first."
+fi
+for unit in iwd.service systemd-networkd.service systemd-resolved.service; do
+  systemctl cat "$unit" >/dev/null 2>&1 || fail "$unit is missing."
+done
+{{- end }}
+
+{{- if .installBluetooth }}
+systemctl cat bluetooth.service >/dev/null 2>&1 || fail "Bluetooth was selected, but bluetooth.service is missing."
+{{- end }}
+
+{{- if .isLaptop }}
+power_conflict=""
+for unit in tuned.service tlp.service auto-cpufreq.service system76-power.service; do
+  if systemctl is-enabled --quiet "$unit" 2>/dev/null || systemctl is-active --quiet "$unit" 2>/dev/null; then
+    power_conflict=$unit
+    break
+  fi
+done
+if [[ -z "$power_conflict" ]]; then
+  systemctl cat power-profiles-daemon.service >/dev/null 2>&1 || fail "Laptop profile selected, but power-profiles-daemon is missing."
+fi
+{{- end }}
+
+{{- if .installDocker }}
+systemctl cat docker.socket >/dev/null 2>&1 || fail "Docker was selected, but docker.socket is missing."
+if systemctl is-active --quiet docker.service 2>/dev/null && ! systemctl is-enabled --quiet docker.socket 2>/dev/null; then
+  fail "docker.service is running without socket mode. Stop workloads and the service before conversion."
+fi
+{{- end }}
+
+{{- if .installVirtualization }}
+systemctl cat libvirtd.socket >/dev/null 2>&1 || fail "Virtualization was selected, but libvirtd.socket is missing."
+if systemctl is-active --quiet libvirtd.service 2>/dev/null && ! systemctl is-enabled --quiet libvirtd.socket 2>/dev/null; then
+  fail "libvirtd.service is running without socket mode. Stop active VMs and the service before conversion."
+fi
+{{- end }}
+
+# Apply desired state only after every preflight succeeds.
+install_if_changed "$source_dir/system/greetd/config.toml" /etc/greetd/config.toml
+{{- if eq .browser "chromium" }}
+install_if_changed "$source_dir/system/chromium/no-password-manager.json" /etc/chromium/policies/managed/no-password-manager.json
+{{- end }}
+enable_unit greetd.service
+if [[ $(systemctl get-default) != graphical.target ]]; then
+  sudo systemctl set-default graphical.target
+fi
+
+{{- if .manageMinimalNetwork }}
+network_changed=false
+iwd_changed=false
+if file_needs_install "$source_dir/system/network/20-ethernet.network" /etc/systemd/network/20-ethernet.network; then
+  install_if_changed "$source_dir/system/network/20-ethernet.network" /etc/systemd/network/20-ethernet.network
+  network_changed=true
+fi
+if file_needs_install "$source_dir/system/network/20-wlan.network" /etc/systemd/network/20-wlan.network; then
+  install_if_changed "$source_dir/system/network/20-wlan.network" /etc/systemd/network/20-wlan.network
+  network_changed=true
+fi
+if file_needs_install "$source_dir/system/iwd/main.conf" /etc/iwd/main.conf; then
+  install_if_changed "$source_dir/system/iwd/main.conf" /etc/iwd/main.conf
+  iwd_changed=true
+fi
+enable_now_unit iwd.service
+enable_now_unit systemd-networkd.service
+enable_now_unit systemd-resolved.service
+if [[ "$iwd_changed" == true ]]; then
+  sudo systemctl restart iwd.service
+fi
+if [[ "$network_changed" == true ]]; then
+  sudo networkctl reload
+fi
+[[ -e "$resolver" ]] || fail "systemd-resolved started without creating $resolver"
+if [[ $(readlink -f /etc/resolv.conf 2>/dev/null || true) != "$resolver" ]]; then
+  sudo ln -sfn "$resolver" /etc/resolv.conf
+fi
+{{- end }}
+
+{{- if .installBluetooth }}
+enable_unit bluetooth.service
+{{- end }}
+
+{{- if .isLaptop }}
+if ! id -nG "$current_user" | grep -qw video; then
+  sudo usermod -aG video "$current_user"
+fi
+if [[ -n "$power_conflict" ]]; then
+  echo "Not enabling power-profiles-daemon: $power_conflict is already configured."
+else
+  enable_unit power-profiles-daemon.service
+fi
+{{- end }}
+
+{{- if .installDocker }}
+disable_unit docker.service
+enable_unit docker.socket
+if ! id -nG "$current_user" | grep -qw docker; then
+  sudo usermod -aG docker "$current_user"
+fi
+{{- end }}
+
+{{- if .installVirtualization }}
+disable_unit libvirtd.service
+enable_unit libvirtd.socket
+{{- if .grantLibvirtAccess }}
+if ! id -nG "$current_user" | grep -qw libvirt; then
+  sudo usermod -aG libvirt "$current_user"
+fi
+{{- end }}
+{{- end }}

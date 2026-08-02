@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Start a polkit authentication agent.
+#
+# Agents are not on PATH and every distribution installs them somewhere else,
+# so probe the known locations rather than hardcoding one. This keeps the
+# Hyprland configuration portable across distributions.
+set -euo pipefail
+
+for agent in \
+  /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 \
+  /usr/libexec/polkit-gnome-authentication-agent-1 \
+  /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1 \
+  /usr/lib/polkit-kde-authentication-agent-1 \
+  /usr/libexec/polkit-kde-authentication-agent-1; do
+  if [[ -x "$agent" ]]; then
+    exec "$agent"
+  fi
+done
+
+for agent in hyprpolkitagent lxqt-policykit-agent polkit-mate-authentication-agent-1; do
+  if command -v "$agent" >/dev/null 2>&1; then
+    exec "$agent"
+  fi
+done
+
+echo "No polkit authentication agent found." >&2
+exit 1

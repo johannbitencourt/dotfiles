@@ -2,37 +2,49 @@
 {{- $email := promptStringOnce . "email" "Git email" "" -}}
 {{- $hostname := promptStringOnce . "hostname" "Hostname" .chezmoi.hostname -}}
 {{- $isLaptop := promptBoolOnce . "isLaptop" "Is this a laptop?" false -}}
-{{- $performanceMode := promptBoolOnce . "performanceMode" "Disable Hyprland animations, blur, and shadows for maximum efficiency?" true -}}
+{{- $manageMinimalNetwork := promptBoolOnce . "manageMinimalNetwork" "Replace existing networking with iwd, systemd-networkd, and systemd-resolved?" false -}}
 {{- $installBluetooth := promptBoolOnce . "installBluetooth" "Install and enable Bluetooth?" $isLaptop -}}
 {{- $installDevelopment := promptBoolOnce . "installDevelopment" "Install development tools?" false -}}
 {{- $installDocker := promptBoolOnce . "installDocker" "Install Docker and grant root-equivalent docker group access?" false -}}
 {{- $installVirtualization := promptBoolOnce . "installVirtualization" "Install QEMU/libvirt virtualization?" false -}}
+{{- $grantLibvirtAccess := false -}}
+{{- if $installVirtualization -}}
+{{- $grantLibvirtAccess = promptBoolOnce . "grantLibvirtAccess" "Grant persistent privileged libvirt group access?" false -}}
+{{- end -}}
 {{- $installGaming := promptBoolOnce . "installGaming" "Install Steam, Lutris, and gaming tools?" false -}}
 {{- $installDesktopApps := promptBoolOnce . "installDesktopApps" "Install optional desktop applications?" false -}}
-{{- $installGreeter := promptBoolOnce . "installGreeter" "Install DMS greeter and replace the current display manager?" false -}}
 {{- $browser := promptStringOnce . "browser" "Browser command" "chromium" -}}
+
+sourceDir = {{ .chezmoi.sourceDir | quote }}
 
 [data]
 name = {{ $name | quote }}
 email = {{ $email | quote }}
 hostname = {{ $hostname | quote }}
 isLaptop = {{ $isLaptop }}
-performanceMode = {{ $performanceMode }}
+manageMinimalNetwork = {{ $manageMinimalNetwork }}
 installBluetooth = {{ $installBluetooth }}
 installDevelopment = {{ $installDevelopment }}
 installDocker = {{ $installDocker }}
 installVirtualization = {{ $installVirtualization }}
+grantLibvirtAccess = {{ $grantLibvirtAccess }}
 installGaming = {{ $installGaming }}
 installDesktopApps = {{ $installDesktopApps }}
-installGreeter = {{ $installGreeter }}
-terminal = "ghostty"
+terminal = "foot"
 browser = {{ $browser | quote }}
 editor = "nvim"
 keyboardLayout = "us"
 keyboardVariant = "intl"
 
+{{- /* A configured pager that is not installed makes `chezmoi diff` hang with
+       no output. delta only arrives with the first apply, so on a fresh
+       machine this must stay unset. Re-run `chezmoi init` afterwards to pick
+       it up. */}}
+{{- if lookPath "delta" }}
+
 [diff]
-pager = "delta"
+pager = "delta --paging=never"
+{{- end }}
 
 [git]
 autoCommit = false

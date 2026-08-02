@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+mkdir -p "$HOME/Pictures/Screenshots"
+file="$HOME/Pictures/Screenshots/$(date +%Y-%m-%d_%H-%M-%S_%N).png"
+grim "$file"
+wl-copy < "$file"
+notify-send "Screenshot saved" "$file"

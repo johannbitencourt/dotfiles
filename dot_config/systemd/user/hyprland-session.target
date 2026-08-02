@@ -1,4 +1,0 @@
-[Unit]
-Description=Hyprland graphical session
-Requires=graphical-session.target
-After=graphical-session.target

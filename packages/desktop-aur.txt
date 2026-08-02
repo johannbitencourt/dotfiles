@@ -1,0 +1,3 @@
+brave-bin
+zen-browser-bin
+spotify

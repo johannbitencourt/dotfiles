@@ -1,106 +1,208 @@
-# CachyOS + Hyprland + DMS dotfiles
+# Bare-metal Hyprland dotfiles
 
-Personal, machine-aware configuration managed by [chezmoi](https://www.chezmoi.io/).
-The repository expects a minimal CachyOS installation and deliberately does not
-vendor CachyOS, Hyprland, or DankMaterialShell defaults.
+Personal, machine-aware configuration managed by [chezmoi](https://www.chezmoi.io/)
+for a minimal Arch or CachyOS installation. It uses small standalone components
+instead of a desktop environment or widget shell.
 
-## Ownership model
+## Desktop stack
 
-- CachyOS owns the operating system, kernel, drivers, and package repositories.
-- DMS owns its settings and generated files under `~/.config/DankMaterialShell`
-  and `~/.config/hypr/dms`.
-- Chezmoi owns stable personal configuration around those generated files.
-- DMS owns machine-specific display profiles; CachyOS owns GPU drivers.
+- Hyprland managed as a UWSM systemd user session
+- greetd with a fixed tuigreet command that always starts the UWSM session
+- Foot terminal, Fuzzel launcher, and Mako notifications
+- Minimal Waybar with workspaces, clock, audio, network, and optional battery
+- Hypridle and Hyprlock for idle handling and screen locking
+- PipeWire and WirePlumber for audio
+- Native Hyprland and GTK desktop portals
+- Optional repository-managed iwd, systemd-networkd, and resolved networking
 
-Waybar, Walker, Mako, SwayOSD, and Omarchy are intentionally absent. DMS
-provides the bar, launcher, notifications, OSD, lock screen, wallpaper,
-clipboard, process list, and power UI.
+DMS, Quickshell, Omarchy, Walker, Elephant, and SDDM are not used. There is no
+clipboard-history daemon, graphical network applet, OSD daemon, wallpaper
+daemon, or desktop shell. Animations, blur, shadows, transparency, and rounded
+corners are disabled.
+
+Four processes stay resident: `waybar`, `mako`, `hypridle`, and the polkit
+agent. Volume and brightness feedback is drawn by Mako through
+`~/.local/bin/osd` rather than a second on-screen-display daemon, and the
+background is Hyprland's own `misc:background_color` rather than a wallpaper
+process.
+
+## Portability
+
+The desktop layer is distribution-agnostic. Everything under `dot_config/hypr`
+and `dot_local/bin` resolves its commands from `PATH` and hardcodes no
+distribution paths, so it works unchanged on any distribution that ships the
+packages. The polkit agent is the one component whose binary is not on `PATH`
+and whose location differs per distribution, so `~/.local/bin/polkit-agent`
+probes the known locations instead.
+
+Only the bootstrap is Arch-specific: package installation uses `pacman`, and the
+system pass writes `/etc/greetd`, `/etc/systemd/network`, and `/etc/iwd`. On a
+non-pacman distribution the installer refuses to run; install the equivalents of
+`packages/core.txt` by hand and the rest applies normally.
 
 ## Fresh installation
 
-Install CachyOS Minimal without a desktop, connect to the network, then run:
+Start from an updated minimal Arch or CachyOS installation with a working
+network connection:
 
 ```bash
-sudo pacman -S --needed git chezmoi git-delta
-sudo mkdir /dotfiles
-sudo chown "$USER:$USER" /dotfiles
-git clone <repository-url> /dotfiles
-chezmoi init --source /dotfiles
+sudo pacman -Syu --needed git chezmoi
+git clone --branch bare-metal-hyprland <repository-url> "$HOME/dotfiles"
+chezmoi init --apply --source "$HOME/dotfiles"
+```
+
+That is the whole installation. `chezmoi init` prompts for every machine value
+and persists this source directory, so later runs are just `chezmoi apply`.
+
+To review before committing to anything, split the last step:
+
+```bash
+chezmoi init --source "$HOME/dotfiles"
 chezmoi diff
 chezmoi apply
 ```
 
-`chezmoi init` prompts for identity, performance preference, and optional
-package profiles. Maximum-efficiency mode disables Hyprland animations, blur,
-and shadows by default; choose `false` to retain those visual effects. The apply
-installs packages, asks DMS to generate its integration files, and connects DMS
-to the Hyprland user-session target. The greeter is disabled by default because
-enabling it replaces the current display manager with greetd.
+`chezmoi diff` is paged through `delta` only when `delta` is already installed,
+because a configured-but-missing pager makes `chezmoi diff` hang with no output.
+`delta` arrives with the first apply, so re-run `chezmoi init` once afterwards to
+pick it up.
 
-The apply performs a full system upgrade, can change the hostname, enables
-selected system services, and can add the user to privileged Docker/libvirt
-groups. Review `chezmoi apply --dry-run --verbose` before applying. On an
-existing installation, back up `~/.config/hypr` first. The legacy migration
-only removes `.conf` files carrying this repository's previous ownership marker
-and saves them under `~/.config/hypr/legacy-conf-backup`.
+The package bootstrap runs `pacman -Syu` because Arch does not support partial
+upgrades.
 
-Reboot after the initial apply. At the next session, customize bars, displays,
-wallpaper, sleep, and theme from DMS Settings. Those runtime values are not
-committed because they are DMS state rather than portable preferences.
-
-## Existing installation
-
-Review changes before applying:
+The system pass checks every conflict before it changes any file, unit, or
+group. It refuses to replace an enabled display manager. Disable an existing
+manager explicitly, then re-run:
 
 ```bash
-chezmoi init --source /dotfiles
-chezmoi diff
-chezmoi apply --dry-run --verbose
-chezmoi apply
+sudo systemctl disable --now sddm.service
 ```
 
-## Maintenance
+Use the actual service name if it is not SDDM. Packages install before that
+check runs, so a conflict costs a download, not a broken system: no unit state
+or system file is touched until every check passes. The apply then installs
+greetd's configuration, enables `greetd.service`, and selects
+`graphical.target`. Tuigreet uses one fixed command and cannot remember a
+non-UWSM Hyprland session.
+
+## Networking
+
+Replacing the current network stack is a separate, default-off prompt. Leave it
+disabled on the first apply to preserve the connection used for installation.
+When enabled, chezmoi manages:
+
+```text
+/etc/systemd/network/20-ethernet.network
+/etc/systemd/network/20-wlan.network
+/etc/iwd/main.conf
+/etc/resolv.conf -> /run/systemd/resolve/stub-resolv.conf
+```
+
+The migration refuses to continue while NetworkManager, ConnMan, dhcpcd,
+wpa_supplicant, or netctl is active or enabled. It also refuses to replace a
+different resolver configuration. Prepare and test the iwd/networkd migration
+from a console before enabling the prompt; Wi-Fi credentials are not copied
+from another network manager. Use `iwctl`, `networkctl`, and `resolvectl` for
+diagnostics.
+
+The system pass runs after every apply but only invokes `sudo` when managed
+files, symlinks, groups, or unit state have drifted. Turning the
+network-management prompt off later does not restore a previous network manager
+or resolver configuration; migration reversal must be explicit.
+
+## First login
+
+`~/.config/hypr/monitors.conf` is created once and then never touched again, so
+per-machine display settings you put there survive every later apply. Its
+default uses each output's preferred mode. Hardware-specific NVIDIA modules and
+environment variables remain owned by the operating system.
+
+The background is a solid color set by `misc:background_color` in
+`~/.config/hypr/hyprland.conf`. For an image wallpaper, install `swaybg` or
+`hyprpaper` and add one `exec-once` line.
+
+Session environment variables live in `~/.config/uwsm/env`, which UWSM loads
+once for the whole session. `hyprland.conf` intentionally has no `env =` lines.
+
+Useful defaults:
+
+| Keys | Action |
+|---|---|
+| `SUPER+Return` | Terminal |
+| `SUPER+D` | Application launcher |
+| `SUPER+E` | Yazi file manager |
+| `SUPER+L` | Lock |
+| `SUPER+Q` | Close window |
+| `SUPER+F` | Fullscreen |
+| `SUPER+V` | Toggle floating |
+| `Print` | Full screenshot |
+| `SUPER+SHIFT+S` | Region screenshot |
+| `SUPER+SHIFT+E` | Stop the UWSM session |
+
+## Optional profiles
+
+Prompts independently control laptop support, Bluetooth, development tools,
+Docker, virtualization, gaming, desktop applications, and privileged libvirt
+group access. Profiles are install-only: turning one off later does not remove
+packages, disable services, or revoke group membership.
+
+- Docker group membership is root-equivalent and is disclosed by its prompt.
+- Libvirt group membership is privileged, separate, default-off, and unnecessary
+  when polkit authorization is sufficient.
+- Docker and libvirt are socket-activated. Conversion refuses to proceed while
+  their daemons are active so running workloads are never stopped implicitly.
+- Gaming requires Arch's `[multilib]` repository.
+- Desktop applications require a preinstalled `paru` or `yay`; the apply checks
+  this before installing anything from the AUR.
+- AUR PKGBUILDs execute third-party build instructions and require review.
+
+The browser is whatever the `browser` prompt names. It is installed when that
+name is also an official repository package; an AUR or Flatpak browser is
+reported during the bootstrap and left for you to install.
+
+The required desktop deliberately has no Secret Service daemon. When Chromium
+is the chosen browser, its built-in password manager is disabled through a
+managed policy at `/etc/chromium/policies/managed/`. Use an external password
+manager if credentials must be stored. GitHub CLI can store a token in
+`~/.config/gh/hosts.yml` when no keyring is available; protect that file and use
+the authentication workflow appropriate for the machine.
+
+## Migrating from DMS
+
+Run `chezmoi init --source "$HOME/dotfiles"` after switching branches. A
+one-time `run_once_before_05-migrate-from-dms.sh` removes the old Hyprland Lua
+entry points, DMS user-target relationship, DMS environment file, Ghostty files,
+the previous split Hyprland configuration, and the retired SwayOSD and wallpaper
+files. It does not remove packages or arbitrary DMS user state.
+
+It runs once rather than on every apply, so those filenames stay free
+afterwards: a hand-written `~/.config/hypr/autostart.conf` you add later will
+not be deleted.
+
+Before measuring memory, disable the old user service and remove unused shell
+packages after reviewing reverse dependencies:
 
 ```bash
-chezmoi cd
+systemctl --user disable --now dms.service
+```
+
+Do not run that command while another installed desktop depends on DMS.
+
+## Validation
+
+```bash
+dotfiles-health
 chezmoi status
 chezmoi diff
-chezmoi apply
-dms doctor
+Hyprland --verify-config --config ~/.config/hypr/hyprland.conf
 hyprctl reload
 hyprctl configerrors
 ```
 
-Use `chezmoi data` to inspect machine values. Change them in the local chezmoi
-config and re-run `chezmoi apply`; do not hardcode hardware values in tracked
-files.
+Measure the actual session after login rather than estimating from package
+count:
 
-## Package profiles
-
-The default installation is intentionally limited to Hyprland, DMS, audio,
-networking, portals, the configured terminal/editor/file manager, and the CLI
-tools referenced by these dotfiles. Additional prompts control independent
-profiles:
-
-| Profile | Packages |
-|---|---|
-| Bluetooth | `bluez`, `bluez-utils` |
-| Laptop | `brightnessctl`, `power-profiles-daemon` |
-| Development | Godot, GitHub CLI, lazygit/lazydocker, jq/yq, OpenCode |
-| Docker | Docker Engine, Buildx, Compose, root-equivalent group access, socket-activated daemon |
-| Virtualization | QEMU, socket-activated libvirt, virt-manager, swtpm, dnsmasq |
-| Gaming | Steam, Lutris, GameMode, Gamescope, MangoHud |
-| Desktop apps | Brave, Zen, Spotify, Obsidian, LibreOffice, mpv, imv, Flatpak |
-
-Steam and Lutris are never installed unless the gaming profile is selected.
-GPU drivers, including matching 32-bit gaming libraries, are never selected by
-chezmoi. CachyOS owns the kernel and driver branch. Confirm the correct Vulkan
-and 32-bit driver stack before enabling the gaming profile.
-
-AUR packages use `paru` or `yay`. A selected AUR-backed profile fails clearly
-when no helper is available; selected repository packages also fail rather than
-leaving a partially installed desktop.
-
-Package profiles are install-only. Turning a profile off later does not remove
-packages, revoke group membership, disable an existing greeter, or undo system
-configuration automatically.
+```bash
+systemd-cgtop --user
+ps -eo rss,comm --sort=-rss
+```
