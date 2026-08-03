@@ -1,0 +1,11 @@
+[Unit]
+Description=Mako notification daemon
+PartOf=dotfiles-graphical-session.target
+After=dotfiles-graphical-session.target
+StartLimitIntervalSec=30
+StartLimitBurst=3
+
+[Service]
+ExecStart=/usr/bin/mako
+Restart=on-failure
+RestartSec=2

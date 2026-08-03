@@ -1,0 +1,11 @@
+[Unit]
+Description=Waybar status bar
+PartOf=dotfiles-graphical-session.target
+After=dotfiles-graphical-session.target
+StartLimitIntervalSec=30
+StartLimitBurst=3
+
+[Service]
+ExecStart=/usr/bin/waybar
+Restart=on-failure
+RestartSec=2

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if [[ $EUID -eq 0 ]]; then
+	echo "hypr-session: refuse to run as root" >&2
+	exit 1
+fi
+
+if [[ -z ${XDG_RUNTIME_DIR:-} || ! -d $XDG_RUNTIME_DIR ]]; then
+	echo "hypr-session: XDG_RUNTIME_DIR is not set to a real directory" >&2
+	exit 1
+fi
+
+if [[ ! -S "${XDG_RUNTIME_DIR}/bus" ]]; then
+	exec dbus-run-session -- "$0" "$@"
+fi
+
+export XDG_CURRENT_DESKTOP=Hyprland
+export XDG_SESSION_TYPE=wayland
+
+# WAYLAND_DISPLAY doesn't exist until Hyprland starts, so importing it into
+# the systemd/D-Bus activation environment and starting
+# dotfiles-graphical-session.target happens from a generated `exec-once =`
+# line inside Hyprland's own config (see Milestone 4), not here.
+exec Hyprland

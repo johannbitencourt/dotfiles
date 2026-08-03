@@ -1,0 +1,10 @@
+## Login shells: dedupe PATH, then hand off to .bashrc for interactive setup.
+if [[ -d $HOME/.local/bin ]]; then
+	case ":$PATH:" in
+	*":$HOME/.local/bin:"*) ;;
+	*) PATH="$HOME/.local/bin:$PATH" ;;
+	esac
+fi
+export PATH
+
+[[ -f $HOME/.bashrc ]] && source "$HOME/.bashrc"

@@ -1,0 +1,6 @@
+## WAYLAND_DISPLAY doesn't exist until Hyprland starts, so importing it into
+## the systemd/D-Bus activation environment — and starting the graphical
+## session target that owns Waybar/Mako/hypridle/swaybg — happens here
+## rather than in hypr-session.
+
+exec-once = systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP && systemctl --user start dotfiles-graphical-session.target

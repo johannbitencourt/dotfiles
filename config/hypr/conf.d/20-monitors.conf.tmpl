@@ -1,0 +1,7 @@
+## Fallback-safe monitor config: the named primary output is configured
+## explicitly, and every other/unlisted output falls back to its preferred
+## mode. Login never fails just because a docked/undocked output changed —
+## satisfies the "monitor fallback" acceptance criterion.
+
+monitor = @@PRIMARY_OUTPUT@@, preferred, auto, 1
+monitor = , preferred, auto, 1

@@ -1,0 +1,22 @@
+## Base config is deliberately performance-oriented (HLD low-overhead
+## policy): blur, drop shadow, and animations are off by default.
+
+general {
+    gaps_in = @@HYPR_GAPS_IN@@
+    gaps_out = @@HYPR_GAPS_OUT@@
+    border_size = @@HYPR_BORDER_SIZE@@
+    layout = dwindle
+}
+
+decoration {
+    blur {
+        enabled = @@HYPR_BLUR@@
+    }
+    shadow {
+        enabled = false
+    }
+}
+
+animations {
+    enabled = @@HYPR_ANIMATIONS@@
+}

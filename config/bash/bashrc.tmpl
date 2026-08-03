@@ -1,0 +1,17 @@
+## Interactive-only guard — non-interactive shells (scp, rsync, some scripts)
+## shouldn't pay for prompt/alias/completion setup.
+[[ $- != *i* ]] && return
+
+HISTFILE="${XDG_STATE_HOME:-$HOME/.local/state}/bash/history"
+mkdir -p "$(dirname "$HISTFILE")"
+HISTSIZE=10000
+HISTFILESIZE=20000
+HISTCONTROL=ignoredups:erasedups
+shopt -s histappend
+
+## Sources every module under ~/.config/bash/, including the environment.bash
+## generated separately by the project's environment-generation step.
+for _dotfiles_bash_module in "$HOME/.config/bash"/*.bash; do
+	[[ -r $_dotfiles_bash_module ]] && source "$_dotfiles_bash_module"
+done
+unset _dotfiles_bash_module

@@ -1,0 +1,25 @@
+background {
+    monitor =
+    color = rgba(26, 27, 38, 1.0)
+}
+
+input-field {
+    monitor =
+    size = 250, 50
+    outline_thickness = 2
+    outer_color = rgba(122, 162, 247, 1.0)
+    inner_color = rgba(36, 40, 59, 1.0)
+    font_color = rgba(192, 202, 245, 1.0)
+    placeholder_text = <i>Password...</i>
+    fade_on_empty = false
+}
+
+label {
+    monitor =
+    text = cmd[update:1000] echo "$(date +'%H:%M')"
+    color = rgba(192, 202, 245, 1.0)
+    font_size = 48
+    position = 0, 100
+    halign = center
+    valign = center
+}

@@ -1,0 +1,70 @@
+name: validate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: List shell scripts
+        id: scripts
+        run: |
+          {
+            echo 'files<<EOF'
+            find . -path './.git' -prune -o -type f \
+              \( -name '*.sh' -o -name 'install.sh' -o -name 'hypr-session' \) -print
+            echo EOF
+          } >>"$GITHUB_OUTPUT"
+
+      - name: bash -n (syntax check)
+        run: |
+          set -e
+          while IFS= read -r f; do
+            [[ -z $f ]] && continue
+            bash -n "$f"
+          done <<'EOF'
+          ${{ steps.scripts.outputs.files }}
+          EOF
+
+      - name: ShellCheck
+        run: |
+          set -e
+          # --severity=warning: skip info-level SC1091 on the many
+          # dynamically-sourced app modules and test scripts (the ones that
+          # matter — install.sh's own sources — are annotated with
+          # `# shellcheck source=` so they're still followed and checked).
+          while IFS= read -r f; do
+            [[ -z $f ]] && continue
+            shellcheck --severity=warning "$f"
+          done <<'EOF'
+          ${{ steps.scripts.outputs.files }}
+          EOF
+
+      - name: Install shfmt
+        run: go install mvdan.cc/sh/v3/cmd/shfmt@latest
+
+      - name: shfmt (formatting check)
+        run: |
+          set -e
+          # -i 0: tabs for indentation (shfmt's default, spelled out for
+          # clarity) — matches this project's actual style; no -ci, since
+          # case patterns here sit at the same level as `case`/`esac`, one
+          # level shallower than the arm bodies (shfmt's other default).
+          while IFS= read -r f; do
+            [[ -z $f ]] && continue
+            "$(go env GOPATH)/bin/shfmt" -i 0 -d "$f"
+          done <<'EOF'
+          ${{ steps.scripts.outputs.files }}
+          EOF
+
+      - name: Unit tests
+        run: |
+          set -e
+          for t in tests/unit/*.sh; do
+            echo "== ${t} =="
+            bash "$t"
+          done

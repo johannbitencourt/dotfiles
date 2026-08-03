@@ -1,0 +1,11 @@
+[Unit]
+Description=swaybg wallpaper (solid color)
+PartOf=dotfiles-graphical-session.target
+After=dotfiles-graphical-session.target
+StartLimitIntervalSec=30
+StartLimitBurst=3
+
+[Service]
+ExecStart=/usr/bin/swaybg -c "#@@WALLPAPER_COLOR@@"
+Restart=on-failure
+RestartSec=2
