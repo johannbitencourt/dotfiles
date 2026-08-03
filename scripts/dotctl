@@ -1,0 +1,501 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# DOTFILES_ROOT bootstrap: install.sh can derive its root from
+# ${BASH_SOURCE[0]}'s directory because it always runs from inside the repo
+# checkout. dotctl can't assume that — once staged to ~/.local/bin/dotctl as
+# a standalone file, the same trick would resolve to ~/.local/bin. Detect
+# which context this is: if install/apply.sh exists one level up, we're
+# running from a repo checkout (e.g. under test); otherwise fall back to the
+# absolute path baked in by stage::generate_scripts at apply time.
+_dotctl_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+if [[ -f "${_dotctl_dir}/../install/apply.sh" ]]; then
+	DOTFILES_ROOT=$(cd -- "${_dotctl_dir}/.." &>/dev/null && pwd)
+else
+	DOTFILES_ROOT="@@DOTFILES_ROOT_ABS@@"
+fi
+readonly DOTFILES_ROOT
+unset _dotctl_dir
+
+# shellcheck source=scripts/lib/log.sh
+source "${DOTFILES_ROOT}/scripts/lib/log.sh"
+# shellcheck source=scripts/lib/cleanup.sh
+source "${DOTFILES_ROOT}/scripts/lib/cleanup.sh"
+# shellcheck source=scripts/lib/kv-parser.sh
+source "${DOTFILES_ROOT}/scripts/lib/kv-parser.sh"
+# shellcheck source=scripts/lib/template.sh
+source "${DOTFILES_ROOT}/scripts/lib/template.sh"
+# shellcheck source=install/adapters/arch.sh
+source "${DOTFILES_ROOT}/install/adapters/arch.sh"
+# shellcheck source=install/detect.sh
+source "${DOTFILES_ROOT}/install/detect.sh"
+# shellcheck source=install/preflight.sh
+source "${DOTFILES_ROOT}/install/preflight.sh"
+# shellcheck source=install/plan.sh
+source "${DOTFILES_ROOT}/install/plan.sh"
+# shellcheck source=install/stage.sh
+source "${DOTFILES_ROOT}/install/stage.sh"
+# shellcheck source=install/validate.sh
+source "${DOTFILES_ROOT}/install/validate.sh"
+# shellcheck source=install/commit.sh
+source "${DOTFILES_ROOT}/install/commit.sh"
+# shellcheck source=install/services.sh
+source "${DOTFILES_ROOT}/install/services.sh"
+# shellcheck source=install/manifest.sh
+source "${DOTFILES_ROOT}/install/manifest.sh"
+# shellcheck source=install/rollback.sh
+source "${DOTFILES_ROOT}/install/rollback.sh"
+# shellcheck source=install/apply.sh
+source "${DOTFILES_ROOT}/install/apply.sh"
+# shellcheck source=install/diff.sh
+source "${DOTFILES_ROOT}/install/diff.sh"
+# shellcheck source=install/session.sh
+source "${DOTFILES_ROOT}/install/session.sh"
+# shellcheck source=install/doctor.sh
+source "${DOTFILES_ROOT}/install/doctor.sh"
+# shellcheck source=install/uninstall.sh
+source "${DOTFILES_ROOT}/install/uninstall.sh"
+# Note: no install/deploy.sh — dotctl never installs packages.
+
+declare -gA DETECTED=()
+declare -gA CLI_PREFERENCES=()
+
+usage() {
+	cat <<'EOF'
+Usage: dotctl <command> [options]
+
+Commands:
+  apply           regenerate and commit config (like install.sh --config-only)
+  diff            show what apply would change, without changing anything
+  validate        generate and validate config, without committing
+  doctor          report on system health (--json for machine-readable output)
+  restore-config  restore files from a backup transaction
+  uninstall       restore/remove managed files, stop services, write a report
+  update config   fetch, fast-forward, and apply upstream changes
+
+Run 'dotctl <command> --help' for command-specific options.
+EOF
+}
+
+cmd::_common_defaults() {
+	OPT_HOST=$(hostname -s 2>/dev/null || printf '%s' arch)
+	OPT_DRY_RUN=0
+	OPT_NON_INTERACTIVE=0
+}
+
+cmd::apply() {
+	cmd::_common_defaults
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+		--host)
+			OPT_HOST=$2
+			shift 2
+			;;
+		--preference)
+			[[ ${2:-} == *=* ]] || log::die "--preference expects KEY=VALUE, got: ${2:-}"
+			CLI_PREFERENCES[${2%%=*}]=${2#*=}
+			shift 2
+			;;
+		--dry-run)
+			OPT_DRY_RUN=1
+			shift
+			;;
+		--non-interactive)
+			OPT_NON_INTERACTIVE=1
+			shift
+			;;
+		--verbose)
+			set -x
+			shift
+			;;
+		-h | --help)
+			cat <<'EOF'
+Usage: dotctl apply [options]
+
+  --host <name>            host profile to use (default: this machine's hostname)
+  --preference KEY=VALUE   override a resolved value (repeatable)
+  --dry-run                print the plan, mutate nothing
+  --non-interactive        never prompt; fail on unresolved conflicts
+  --verbose                more log output
+EOF
+			exit 0
+			;;
+		*)
+			log::die "dotctl apply: unknown option: $1 (see --help)"
+			;;
+		esac
+	done
+
+	[[ $EUID -ne 0 ]] || log::die "refuse to run as root"
+
+	apply::acquire_lock_and_txn
+	apply::detect_and_plan_host
+	apply::commit_config
+	log::info "apply complete"
+}
+
+cmd::validate() {
+	cmd::_common_defaults
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+		--host)
+			OPT_HOST=$2
+			shift 2
+			;;
+		--verbose)
+			set -x
+			shift
+			;;
+		-h | --help)
+			cat <<'EOF'
+Usage: dotctl validate [options]
+
+  --host <name>   host profile to use (default: this machine's hostname)
+  --verbose       more log output
+EOF
+			exit 0
+			;;
+		*)
+			log::die "dotctl validate: unknown option: $1 (see --help)"
+			;;
+		esac
+	done
+
+	apply::detect_and_plan_host
+	apply::stage_and_validate
+	log::info "validate complete: config generates and validates cleanly"
+}
+
+cmd::diff() {
+	cmd::_common_defaults
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+		--host)
+			OPT_HOST=$2
+			shift 2
+			;;
+		--verbose)
+			set -x
+			shift
+			;;
+		-h | --help)
+			cat <<'EOF'
+Usage: dotctl diff [options]
+
+  --host <name>   host profile to use (default: this machine's hostname)
+  --verbose       more log output
+
+Shows what 'dotctl apply' would change. Read-only — never writes anything.
+EOF
+			exit 0
+			;;
+		*)
+			log::die "dotctl diff: unknown option: $1 (see --help)"
+			;;
+		esac
+	done
+
+	diff::run
+}
+
+cmd::doctor() {
+	local json_mode=0
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+		--json)
+			json_mode=1
+			shift
+			;;
+		--verbose)
+			set -x
+			shift
+			;;
+		-h | --help)
+			cat <<'EOF'
+Usage: dotctl doctor [options]
+
+  --json      machine-readable output (array of {check, status, detail})
+  --verbose   more log output
+
+Read-only. Reports PASS/WARN/FAIL/SKIP for each check and keeps going.
+EOF
+			exit 0
+			;;
+		*)
+			log::die "dotctl doctor: unknown option: $1 (see --help)"
+			;;
+		esac
+	done
+
+	doctor::run "$json_mode"
+}
+
+cmd::restore_config() {
+	local txn="" use_last=0
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+		--last)
+			use_last=1
+			shift
+			;;
+		--transaction)
+			txn=$2
+			shift 2
+			;;
+		--verbose)
+			set -x
+			shift
+			;;
+		-h | --help)
+			cat <<'EOF'
+Usage: dotctl restore-config --last | --transaction <id>
+
+  --last              restore the most recent backup transaction
+  --transaction <id>  restore a specific transaction by id
+  --verbose           more log output
+EOF
+			exit 0
+			;;
+		*)
+			log::die "dotctl restore-config: unknown option: $1 (see --help)"
+			;;
+		esac
+	done
+
+	if [[ $use_last -eq 1 && -n $txn ]]; then
+		log::die "dotctl restore-config: --last and --transaction are mutually exclusive"
+	fi
+	if [[ $use_last -eq 0 && -z $txn ]]; then
+		log::die "dotctl restore-config: specify --last or --transaction <id> (see --help)"
+	fi
+
+	apply::ensure_state_dir
+
+	if [[ $use_last -eq 1 ]]; then
+		txn=$(rollback::latest_transaction)
+		[[ -n $txn ]] || log::die "dotctl restore-config: no backup transactions found under ${STATE_DIR}/backups"
+	fi
+
+	# Takes the project lock directly rather than apply::acquire_lock_and_txn:
+	# this undoes a past transaction, it doesn't mint a new one.
+	LOCK_FILE="${STATE_DIR}/lock"
+	exec 200>"$LOCK_FILE"
+	flock -n 200 || log::die "another install/update is already running (lock: ${LOCK_FILE})"
+
+	rollback::restore_transaction "$txn"
+}
+
+cmd::uninstall() {
+	local remove_packages=0 remove_state=0 keep_config=0 dry_run=0
+	OPT_NON_INTERACTIVE=0
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+		--remove-packages)
+			remove_packages=1
+			shift
+			;;
+		--remove-state)
+			remove_state=1
+			shift
+			;;
+		--keep-config)
+			keep_config=1
+			shift
+			;;
+		--dry-run)
+			dry_run=1
+			shift
+			;;
+		--non-interactive)
+			OPT_NON_INTERACTIVE=1
+			shift
+			;;
+		--verbose)
+			set -x
+			shift
+			;;
+		-h | --help)
+			cat <<'EOF'
+Usage: dotctl uninstall [options]
+
+  --remove-packages   also remove packages this project installed (best-effort; see below)
+  --remove-state      also delete ~/.local/state/dotfiles (install.json + all backup history)
+  --keep-config       leave generated config files in place; only stop services (and
+                       remove packages/state if those flags are also given)
+  --dry-run           show what would happen, change nothing
+  --non-interactive   never prompt; proceed without asking for confirmation
+  --verbose           more log output
+
+Restores every managed file to its pre-project original when a backup of it
+exists, otherwise removes it. Native packages and project state are
+retained unless their flags are given. Writes a report to
+~/.local/share/dotfiles/uninstall-report-<timestamp>.json.
+EOF
+			exit 0
+			;;
+		*)
+			log::die "dotctl uninstall: unknown option: $1 (see --help)"
+			;;
+		esac
+	done
+
+	[[ $EUID -ne 0 ]] || log::die "refuse to run as root"
+
+	apply::ensure_state_dir
+	LOCK_FILE="${STATE_DIR}/lock"
+	exec 200>"$LOCK_FILE"
+	flock -n 200 || log::die "another install/update is already running (lock: ${LOCK_FILE})"
+
+	uninstall::run "$remove_packages" "$remove_state" "$keep_config" "$dry_run"
+}
+
+cmd::update() {
+	local scope=${1:-}
+	case $scope in
+	config)
+		shift
+		cmd::update_config "$@"
+		;;
+	packages | all)
+		log::info "dotctl update ${scope}: not supported yet"
+		;;
+	"")
+		cat <<'EOF'
+Usage: dotctl update <scope>
+
+  config     fetch, fast-forward, and apply upstream changes
+  packages   not supported yet
+  all        not supported yet
+
+A bare 'dotctl update' prints these scopes and does not mutate anything.
+EOF
+		;;
+	*)
+		log::die "dotctl update: unknown scope: ${scope} (see 'dotctl update' for available scopes)"
+		;;
+	esac
+}
+
+cmd::update_config() {
+	cmd::_common_defaults
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+		--host)
+			OPT_HOST=$2
+			shift 2
+			;;
+		--preference)
+			[[ ${2:-} == *=* ]] || log::die "--preference expects KEY=VALUE, got: ${2:-}"
+			CLI_PREFERENCES[${2%%=*}]=${2#*=}
+			shift 2
+			;;
+		--dry-run)
+			OPT_DRY_RUN=1
+			shift
+			;;
+		--non-interactive)
+			OPT_NON_INTERACTIVE=1
+			shift
+			;;
+		--verbose)
+			set -x
+			shift
+			;;
+		-h | --help)
+			cat <<'EOF'
+Usage: dotctl update config [options]
+
+  --host <name>            host profile to use (default: this machine's hostname)
+  --preference KEY=VALUE   override a resolved value (repeatable)
+  --dry-run                show incoming commits, stop before merging or applying
+  --non-interactive        never prompt; fail on unresolved conflicts during apply
+  --verbose                more log output
+
+Fetches origin, fast-forwards this checkout onto it if possible, then runs
+the same regenerate/backup/commit/validate/rollback-on-failure sequence as
+'dotctl apply'. Refuses on a dirty working tree or a diverged branch; never
+forces anything.
+EOF
+			exit 0
+			;;
+		*)
+			log::die "dotctl update config: unknown option: $1 (see --help)"
+			;;
+		esac
+	done
+
+	[[ $EUID -ne 0 ]] || log::die "refuse to run as root"
+
+	if [[ -n $(git -C "$DOTFILES_ROOT" status --porcelain 2>/dev/null) ]]; then
+		log::die "dotctl update config: repo working tree at ${DOTFILES_ROOT} is not clean; commit or stash before updating"
+	fi
+
+	if ! git -C "$DOTFILES_ROOT" remote get-url origin >/dev/null 2>&1; then
+		log::warn "update config: no 'origin' remote configured for ${DOTFILES_ROOT}"
+		return 0
+	fi
+
+	log::info "update config: fetching origin..."
+	git -C "$DOTFILES_ROOT" fetch origin || log::die "update config: git fetch failed"
+
+	local branch
+	branch=$(git -C "$DOTFILES_ROOT" rev-parse --abbrev-ref HEAD)
+
+	if ! git -C "$DOTFILES_ROOT" rev-parse --verify -q "origin/${branch}" >/dev/null 2>&1; then
+		log::warn "update config: no origin/${branch} to update against"
+		return 0
+	fi
+
+	local local_rev remote_rev
+	local_rev=$(git -C "$DOTFILES_ROOT" rev-parse HEAD)
+	remote_rev=$(git -C "$DOTFILES_ROOT" rev-parse "origin/${branch}")
+
+	if [[ $local_rev == "$remote_rev" ]]; then
+		log::info "update config: already up to date (${local_rev:0:7})"
+		return 0
+	fi
+
+	if ! git -C "$DOTFILES_ROOT" merge-base --is-ancestor HEAD "origin/${branch}"; then
+		log::die "update config: local ${branch} has diverged from origin/${branch}; refusing to merge non-fast-forward"
+	fi
+
+	log::info "update config: ${local_rev:0:7} -> ${remote_rev:0:7}"
+	git -C "$DOTFILES_ROOT" log --oneline "HEAD..origin/${branch}"
+	git -C "$DOTFILES_ROOT" diff --stat HEAD "origin/${branch}"
+
+	if [[ $OPT_DRY_RUN -eq 1 ]]; then
+		log::info "update config: --dry-run, not merging or applying"
+		return 0
+	fi
+
+	git -C "$DOTFILES_ROOT" merge --ff-only "origin/${branch}" || log::die "update config: fast-forward merge failed"
+
+	apply::acquire_lock_and_txn
+	apply::detect_and_plan_host
+	apply::commit_config
+	log::info "update config: complete"
+}
+
+[[ $# -ge 1 ]] || {
+	usage
+	exit 1
+}
+CMD=$1
+shift
+
+case $CMD in
+apply) cmd::apply "$@" ;;
+diff) cmd::diff "$@" ;;
+validate) cmd::validate "$@" ;;
+doctor) cmd::doctor "$@" ;;
+restore-config) cmd::restore_config "$@" ;;
+uninstall) cmd::uninstall "$@" ;;
+update) cmd::update "$@" ;;
+-h | --help)
+	usage
+	exit 0
+	;;
+*)
+	log::die "unknown command: ${CMD} (see --help)"
+	;;
+esac

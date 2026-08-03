@@ -8,8 +8,12 @@ declare -g MANIFEST_FRAGMENTS_DIR=""
 declare -g MANIFEST_FILES_JSONL=""
 
 manifest::init() {
-	MANIFEST_FRAGMENTS_DIR="${STAGE_DIR}/manifest-fragments"
-	mkdir -p "$MANIFEST_FRAGMENTS_DIR"
+	# Its own scratch dir, not a subdirectory of $STAGE_DIR: callers need to
+	# add fragments (e.g. the package plan) before stage::init has run, so
+	# this can't depend on $STAGE_DIR existing yet. Cleaned up by its own
+	# trap rather than riding along with stage::init's.
+	MANIFEST_FRAGMENTS_DIR=$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-manifest.XXXXXX")
+	cleanup::register "$MANIFEST_FRAGMENTS_DIR"
 	MANIFEST_FILES_JSONL="${MANIFEST_FRAGMENTS_DIR}/managed_files.jsonl"
 	: >"$MANIFEST_FILES_JSONL"
 }

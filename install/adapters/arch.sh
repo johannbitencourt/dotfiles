@@ -12,6 +12,7 @@
 #   adapter_resolve_capability <capability> -> prints package name, or "unsupported"
 #   adapter_package_installed <package>
 #   adapter_install_packages <package>...
+#   adapter_remove_packages <package>...
 #   adapter_candidate_version <package>
 #   adapter_enable_system_service <unit>
 #   adapter_disable_system_service <unit>
@@ -48,28 +49,49 @@ adapter_install_packages() {
 	sudo pacman -S --needed --noconfirm "${pkgs[@]}"
 }
 
+# adapter_remove_packages <package>...
+# Plain -R, not -Rs: pacman itself refuses to remove a package something
+# else still depends on, matching "shared dependencies are never
+# automatically removed" without any extra logic here.
+adapter_remove_packages() {
+	local -a pkgs=("$@")
+	[[ ${#pkgs[@]} -eq 0 ]] && return 0
+	sudo pacman -R --noconfirm "${pkgs[@]}"
+}
+
 # adapter_candidate_version <package>
 adapter_candidate_version() {
 	local pkg=$1
 	pacman -Si "$pkg" 2>/dev/null | awk -F': ' '/^Version/ { print $2; exit }'
 }
 
-adapter_validate_version() {
+# adapter_check_hyprland_version — non-dying core shared by
+# adapter_validate_version (dies on failure, used by apply) and doctor's
+# distro check (reports and keeps going). Sets ADAPTER_CANDIDATE_VERSION /
+# ADAPTER_MIN_VERSION as a side effect. Returns: 0 candidate>=min, 1
+# candidate<min, 2 candidate unknown (e.g. pacman unreachable).
+adapter_check_hyprland_version() {
 	local -A compat
 	kv_parse_file "${DOTFILES_ROOT}/compat/compat.conf" compat
-	local min_version=${compat[HYPRLAND_MIN_VERSION]}
-	local candidate candidate_ver
-	candidate=$(adapter_candidate_version hyprland)
-	[[ -n $candidate ]] || log::die "adapter_validate_version: could not query candidate hyprland version"
-	# pacman versions are pkgver-pkgrel (and, rarely, epoch:pkgver-pkgrel); strip
-	# the pkgrel suffix so sort -V compares plain pkgver against pkgver. Epochs
-	# aren't handled — no Phase-1 capability uses one.
-	candidate_ver=${candidate%-*}
+	ADAPTER_MIN_VERSION=${compat[HYPRLAND_MIN_VERSION]}
+	ADAPTER_CANDIDATE_VERSION=$(adapter_candidate_version hyprland)
+	[[ -n $ADAPTER_CANDIDATE_VERSION ]] || return 2
 
-	if [[ "$(printf '%s\n%s\n' "$min_version" "$candidate_ver" | sort -V | head -n1)" != "$min_version" ]]; then
-		log::die "hyprland candidate ${candidate} is older than required minimum ${min_version}"
-	fi
-	log::info "hyprland candidate ${candidate} satisfies minimum ${min_version}"
+	# pacman versions are pkgver-pkgrel (and, rarely, epoch:pkgver-pkgrel);
+	# strip the pkgrel suffix so sort -V compares plain pkgver against
+	# pkgver. Epochs aren't handled — no Phase-1/2 capability uses one.
+	local candidate_ver=${ADAPTER_CANDIDATE_VERSION%-*}
+	[[ "$(printf '%s\n%s\n' "$ADAPTER_MIN_VERSION" "$candidate_ver" | sort -V | head -n1)" == "$ADAPTER_MIN_VERSION" ]]
+}
+
+adapter_validate_version() {
+	local rc
+	adapter_check_hyprland_version && rc=0 || rc=$?
+	case $rc in
+	0) log::info "hyprland candidate ${ADAPTER_CANDIDATE_VERSION} satisfies minimum ${ADAPTER_MIN_VERSION}" ;;
+	2) log::die "adapter_validate_version: could not query candidate hyprland version" ;;
+	*) log::die "hyprland candidate ${ADAPTER_CANDIDATE_VERSION} is older than required minimum ${ADAPTER_MIN_VERSION}" ;;
+	esac
 }
 
 adapter_enable_system_service() {

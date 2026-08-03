@@ -9,7 +9,7 @@ declare -g STAGE_DIR=""
 
 stage::init() {
 	STAGE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-stage.XXXXXX")
-	trap 'rm -rf "${STAGE_DIR}"' EXIT
+	cleanup::register "$STAGE_DIR"
 	log::info "stage::init: staging in ${STAGE_DIR}"
 }
 
@@ -58,7 +58,14 @@ stage::generate_scripts() {
 	local -A values=()
 	render_template "${DOTFILES_ROOT}/scripts/hypr-session" \
 		"${STAGE_DIR}/home/.local/bin/hypr-session" values
-	log::info "stage::generate_scripts: rendered hypr-session"
+
+	# dotctl needs its real DOTFILES_ROOT baked in — once staged to
+	# ~/.local/bin/dotctl it can no longer derive it from its own path.
+	local -A dotctl_values=([DOTFILES_ROOT_ABS]="$DOTFILES_ROOT")
+	render_template "${DOTFILES_ROOT}/scripts/dotctl" \
+		"${STAGE_DIR}/home/.local/bin/dotctl" dotctl_values
+
+	log::info "stage::generate_scripts: rendered hypr-session, dotctl"
 }
 
 # stage::generate_applications — discovers applications/*/generate.sh and

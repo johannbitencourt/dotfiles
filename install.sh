@@ -6,6 +6,8 @@ readonly DOTFILES_ROOT
 
 # shellcheck source=scripts/lib/log.sh
 source "${DOTFILES_ROOT}/scripts/lib/log.sh"
+# shellcheck source=scripts/lib/cleanup.sh
+source "${DOTFILES_ROOT}/scripts/lib/cleanup.sh"
 # shellcheck source=scripts/lib/kv-parser.sh
 source "${DOTFILES_ROOT}/scripts/lib/kv-parser.sh"
 # shellcheck source=scripts/lib/template.sh
@@ -32,6 +34,8 @@ source "${DOTFILES_ROOT}/install/services.sh"
 source "${DOTFILES_ROOT}/install/manifest.sh"
 # shellcheck source=install/rollback.sh
 source "${DOTFILES_ROOT}/install/rollback.sh"
+# shellcheck source=install/apply.sh
+source "${DOTFILES_ROOT}/install/apply.sh"
 
 declare -gA DETECTED=()
 declare -gA CLI_PREFERENCES=()
@@ -120,20 +124,8 @@ if [[ $OPT_CONFIG_ONLY -eq 1 && $OPT_PACKAGES_ONLY -eq 1 ]]; then
 	log::die "--config-only and --packages-only are mutually exclusive"
 fi
 
-STATE_DIR="${HOME}/.local/state/dotfiles"
-mkdir -p "$STATE_DIR"
-LOCK_FILE="${STATE_DIR}/lock"
-exec 200>"$LOCK_FILE"
-flock -n 200 || log::die "another install/update is already running (lock: ${LOCK_FILE})"
-
-TRANSACTION_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$"
-readonly TRANSACTION_ID
-log::info "starting transaction ${TRANSACTION_ID} (host=${OPT_HOST} dry_run=${OPT_DRY_RUN})"
-
-preflight::run
-detect::run
-adapter_validate_version
-plan::resolve_host "$OPT_HOST"
+apply::acquire_lock_and_txn
+apply::detect_and_plan_host
 plan::resolve_capabilities
 plan::build
 plan::print
@@ -146,34 +138,9 @@ fi
 
 if [[ $OPT_PACKAGES_ONLY -eq 1 ]]; then
 	log::info "--packages-only: skipping config generation"
+	rm -f "${STATE_DIR}/active-transaction"
 	exit 0
 fi
-
-commit::init
-stage::init
-manifest::init
-stage::generate_environment
-stage::generate_applications
-stage::generate_scripts
-stage::generate_systemd_units
-validate::staging "${STAGE_DIR}/config"
-validate::staging "${STAGE_DIR}/home"
-validate::applications
-services::validate_units
-
-PROJECT_COMMIT=$(git -C "$DOTFILES_ROOT" rev-parse --short HEAD 2>/dev/null || printf '%s' unknown)
-manifest::add_fragment "$(jq -nc \
-	--arg txn "$TRANSACTION_ID" \
-	--arg commit "$PROJECT_COMMIT" \
-	--arg distro_id "${HOST[DISTRO_ID]:-unknown}" \
-	--arg host_profile "$PLAN_HOST_NAME" \
-	--arg session_mode "$OPT_SESSION" \
-	--arg gpu_vendor "${HOST[GPU_VENDOR]:-unknown}" \
-	--arg gpu_mode "${HOST[GPU_MODE]:-unknown}" \
-	'{schema_version: 1, transaction_id: $txn, project_commit: $commit,
-	  distro: {id: $distro_id}, host_profile: $host_profile, session_mode: $session_mode,
-	  hardware: {gpu_vendor: $gpu_vendor, gpu_mode: $gpu_mode},
-	  pending_validations: ["PENDING_LOGIN_VALIDATION"]}')"
 
 INSTALLED_NOW_JSON='[]'
 if [[ $OPT_CONFIG_ONLY -eq 0 && $OPT_DRY_RUN -eq 0 ]]; then
@@ -186,25 +153,6 @@ manifest::add_fragment "$(jq -nc \
 	'{capabilities: {requested: $requested, resolved: $requested},
 	  packages: {already_present: $present, installed_by_project: $installed}}')"
 
-manifest::add_fragment '{"services_enabled":["dotfiles-graphical-session.target","waybar.service","mako.service","hypridle.service","swaybg.service"]}'
+apply::commit_config
 
-# Run the commit phase in a subshell: a log::die inside it (e.g. a refused
-# conflict) calls exit, which an ERR trap does NOT catch when it fires from a
-# nested function (verified empirically) — an exit always terminates the
-# whole process outright. Isolating it in a subshell means only the subshell
-# dies, so the parent can detect the failure and roll back the files that
-# *did* get committed before it died (their rows are already flushed to
-# manifest.tsv on disk, subshell or not).
-if ! (
-	commit::commit_staged_tree "${STAGE_DIR}/config" "${HOME}/.config"
-	commit::commit_staged_tree "${STAGE_DIR}/home" "${HOME}"
-); then
-	log::error "install: a mutation failed mid-transaction; rolling back committed files for ${TRANSACTION_ID}"
-	rollback::restore_transaction "$TRANSACTION_ID"
-	log::die "install: transaction ${TRANSACTION_ID} rolled back after failure"
-fi
-
-services::reload_units
-manifest::write
-
-log::info "install complete (Phase 1: core desktop, no dotctl/profiles/wizard yet)"
+log::info "install complete (core desktop; no first-run wizard/profiles/diagnostics yet)"

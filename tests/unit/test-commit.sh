@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 DOTFILES_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." &>/dev/null && pwd)
 source "${DOTFILES_ROOT}/scripts/lib/log.sh"
+source "${DOTFILES_ROOT}/scripts/lib/cleanup.sh"
 
 fail() {
 	echo "FAIL: $*"
@@ -10,10 +11,15 @@ fail() {
 }
 
 # Everything below runs against a scratch $HOME — never the real one.
+# Registered via cleanup::register, not our own `trap ... EXIT`: cleanup.sh
+# already owns that trap (multiple modules share it — see its own comment),
+# and a second `trap EXIT` here would silently replace it instead of chaining.
 FAKE_HOME=$(mktemp -d)
 STAGE_DIR=$(mktemp -d)
 staged_dir=$(mktemp -d)
-trap 'rm -rf "$FAKE_HOME" "$STAGE_DIR" "$staged_dir"' EXIT
+cleanup::register "$FAKE_HOME"
+cleanup::register "$STAGE_DIR"
+cleanup::register "$staged_dir"
 HOME=$FAKE_HOME
 STATE_DIR="${HOME}/.local/state/dotfiles"
 TRANSACTION_ID="test-txn"

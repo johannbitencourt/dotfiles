@@ -18,6 +18,14 @@ fi
 export XDG_CURRENT_DESKTOP=Hyprland
 export XDG_SESSION_TYPE=wayland
 
+# Session-liveness marker for `dotctl doctor`'s session-gated checks: `exec`
+# replaces this process's image without forking, so $$ is Hyprland's real
+# PID once it starts. Doctor checks this PID is alive AND still named
+# Hyprland (guards a stale marker after PID reuse) rather than "is a
+# Hyprland-family process running," which would misfire against some other
+# project's Hyprland session on the same machine.
+printf '%s\n' "$$" >"${XDG_RUNTIME_DIR}/dotfiles-hyprland-session.pid"
+
 # WAYLAND_DISPLAY doesn't exist until Hyprland starts, so importing it into
 # the systemd/D-Bus activation environment and starting
 # dotfiles-graphical-session.target happens from a generated `exec-once =`

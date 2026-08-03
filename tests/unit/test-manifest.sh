@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 DOTFILES_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." &>/dev/null && pwd)
 source "${DOTFILES_ROOT}/scripts/lib/log.sh"
+source "${DOTFILES_ROOT}/scripts/lib/cleanup.sh"
 source "${DOTFILES_ROOT}/install/manifest.sh"
 
 fail() {
@@ -12,7 +13,8 @@ fail() {
 
 STAGE_DIR=$(mktemp -d)
 STATE_DIR=$(mktemp -d)
-trap 'rm -rf "$STAGE_DIR" "$STATE_DIR"' EXIT
+cleanup::register "$STAGE_DIR"
+cleanup::register "$STATE_DIR"
 
 manifest::init
 manifest::add_fragment '{"schema_version":1,"transaction_id":"test-txn"}'
@@ -38,7 +40,7 @@ echo "PASS: managed_files accumulates incrementally with sha256: prefix"
 # A run that adds no fragments at all must still produce a valid (empty)
 # manifest rather than erroring on missing glob matches.
 STATE_DIR2=$(mktemp -d)
-trap 'rm -rf "$STAGE_DIR" "$STATE_DIR" "$STATE_DIR2"' EXIT
+cleanup::register "$STATE_DIR2"
 STAGE_DIR="$STATE_DIR2/stage"
 manifest::init
 STATE_DIR="$STATE_DIR2"
