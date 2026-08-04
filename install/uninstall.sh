@@ -172,6 +172,18 @@ uninstall::run() {
 
 	uninstall::_write_report "$remove_packages" "$remove_state" "$keep_config" pkgs_removed "$pkgs_note"
 
+	# Tool/workflow profiles (dotctl profile install <id>) track their own
+	# packages in profiles.json, entirely separate from install.json's
+	# installed_by_project — this uninstall never touches them. Cheap,
+	# real-surprise-avoiding warning rather than silent cleanup: full
+	# profile-aware uninstall is a real small feature, not a one-liner (see
+	# install/profile.sh's header for why removal needs the orphan check).
+	local -a still_installed_profiles
+	mapfile -t still_installed_profiles < <(jq -r '.profiles // {} | keys[]' "${STATE_DIR}/profiles.json" 2>/dev/null)
+	if [[ ${#still_installed_profiles[@]} -gt 0 ]]; then
+		log::warn "uninstall: tool profile(s) still installed and NOT touched by this uninstall: ${still_installed_profiles[*]} — run 'dotctl profile remove <id>' first if you want their packages removed too"
+	fi
+
 	if [[ $remove_state -eq 1 ]]; then
 		uninstall::_confirm "Permanently delete ${STATE_DIR} (install.json and every historical backup — dotctl restore-config will have nothing left afterward)?"
 		rm -rf "$STATE_DIR"

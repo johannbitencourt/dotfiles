@@ -9,10 +9,11 @@ declare -ga PLAN_PRESENT_PACKAGES=()
 declare -g PLAN_HOST_NAME=""
 
 # plan::resolve_host <host-name>
-# Precedence (lowest to highest): project preference defaults < detected
-# hardware facts < committed host profile < local untracked host override
-# < --preference CLI flags. (2 layers, not the full HLD 7-layer chain — see
-# the Phase-1 simplification table in the project plan.)
+# Precedence (lowest to highest): project preference defaults < installed
+# tool-profile defaults < detected hardware facts < committed host profile
+# < local untracked host override < --preference CLI flags. (Missing one
+# HLD layer, "distribution adapter defaults" — a pre-existing gap, not
+# related to profiles; see install/profile.sh's header.)
 plan::resolve_host() {
 	PLAN_HOST_NAME=$1
 	local host_file="${DOTFILES_ROOT}/hosts/${PLAN_HOST_NAME}.conf"
@@ -22,6 +23,10 @@ plan::resolve_host() {
 	local -A defaults=()
 	kv_parse_file "${DOTFILES_ROOT}/preferences/defaults.conf" defaults
 	for k in "${!defaults[@]}"; do HOST[$k]=${defaults[$k]}; done
+
+	local -A profile_defaults=()
+	profile::collect_preference_defaults profile_defaults
+	for k in "${!profile_defaults[@]}"; do HOST[$k]=${profile_defaults[$k]}; done
 
 	for k in "${!DETECTED[@]}"; do HOST[$k]=${DETECTED[$k]}; done
 

@@ -20,6 +20,8 @@ source "${DOTFILES_ROOT}/install/detect.sh"
 source "${DOTFILES_ROOT}/install/preflight.sh"
 # shellcheck source=install/plan.sh
 source "${DOTFILES_ROOT}/install/plan.sh"
+# shellcheck source=install/profile.sh
+source "${DOTFILES_ROOT}/install/profile.sh"
 # shellcheck source=install/deploy.sh
 source "${DOTFILES_ROOT}/install/deploy.sh"
 # shellcheck source=install/stage.sh
@@ -142,13 +144,22 @@ if [[ $OPT_PACKAGES_ONLY -eq 1 ]]; then
 	exit 0
 fi
 
+# printf '%s\n' "${arr[@]}" with a genuinely EMPTY array still executes its
+# format string once (printf pads a missing conversion with an empty
+# string rather than running zero times), producing [""] instead of []
+# once piped through jq — guard each array explicitly rather than relying
+# on printf to degrade gracefully to no output.
 INSTALLED_NOW_JSON='[]'
-if [[ $OPT_CONFIG_ONLY -eq 0 && $OPT_DRY_RUN -eq 0 ]]; then
+if [[ $OPT_CONFIG_ONLY -eq 0 && $OPT_DRY_RUN -eq 0 && ${#PLAN_MISSING_PACKAGES[@]} -gt 0 ]]; then
 	INSTALLED_NOW_JSON=$(printf '%s\n' "${PLAN_MISSING_PACKAGES[@]}" | jq -R . | jq -sc .)
 fi
+REQUESTED_JSON='[]'
+[[ ${#RESOLVED_PACKAGES[@]} -gt 0 ]] && REQUESTED_JSON=$(printf '%s\n' "${!RESOLVED_PACKAGES[@]}" | sort | jq -R . | jq -sc .)
+PRESENT_JSON='[]'
+[[ ${#PLAN_PRESENT_PACKAGES[@]} -gt 0 ]] && PRESENT_JSON=$(printf '%s\n' "${PLAN_PRESENT_PACKAGES[@]}" | jq -R . | jq -sc .)
 manifest::add_fragment "$(jq -nc \
-	--argjson requested "$(printf '%s\n' "${!RESOLVED_PACKAGES[@]}" | sort | jq -R . | jq -sc .)" \
-	--argjson present "$(printf '%s\n' "${PLAN_PRESENT_PACKAGES[@]}" | jq -R . | jq -sc .)" \
+	--argjson requested "$REQUESTED_JSON" \
+	--argjson present "$PRESENT_JSON" \
 	--argjson installed "$INSTALLED_NOW_JSON" \
 	'{capabilities: {requested: $requested, resolved: $requested},
 	  packages: {already_present: $present, installed_by_project: $installed}}')"

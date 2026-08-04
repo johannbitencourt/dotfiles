@@ -33,6 +33,8 @@ source "${DOTFILES_ROOT}/install/detect.sh"
 source "${DOTFILES_ROOT}/install/preflight.sh"
 # shellcheck source=install/plan.sh
 source "${DOTFILES_ROOT}/install/plan.sh"
+# shellcheck source=install/profile.sh
+source "${DOTFILES_ROOT}/install/profile.sh"
 # shellcheck source=install/stage.sh
 source "${DOTFILES_ROOT}/install/stage.sh"
 # shellcheck source=install/validate.sh
@@ -80,6 +82,7 @@ Commands:
   update config   fetch, fast-forward, and apply upstream changes
   diagnose        write a redacted, portable local diagnostics bundle
   recover         inspect current state and offer the matching fix
+  profile         list/show/plan/install/remove a tool profile (e.g. 'dev') — see 'dotctl profile --help'
 
 Run 'dotctl <command> --help' for command-specific options.
 EOF
@@ -683,6 +686,256 @@ EOF
 	exit "$rc"
 }
 
+cmd::profile() {
+	local sub=${1:-}
+	case $sub in
+	list)
+		shift
+		cmd::profile_list "$@"
+		;;
+	show)
+		shift
+		cmd::profile_show "$@"
+		;;
+	plan)
+		shift
+		cmd::profile_plan "$@"
+		;;
+	install)
+		shift
+		cmd::profile_install "$@"
+		;;
+	remove)
+		shift
+		cmd::profile_remove "$@"
+		;;
+	"" | -h | --help)
+		cat <<'EOF'
+Usage: dotctl profile <list|show|plan|install|remove> [options]
+
+Tool/workflow profiles (e.g. 'dev') bundle optional command-line capabilities,
+their preference defaults, and removal rules — NOT the same thing as this
+project's --host <name> host profile (hosts/<name>.conf, this machine's own
+hardware/session identity). This command's "profile" always means a
+tool/workflow bundle; wherever this project means the other sense, it says
+"host profile" or "--host" explicitly, never bare "profile".
+
+Commands:
+  list            list every available tool profile
+  show <id>       show one tool profile's declared capabilities, preferences,
+                  recommendations/conflicts, and install status
+  plan <id>       preview what 'install <id>' would do — read-only
+  install <id>    resolve, confirm, and install a tool profile's packages
+  remove <id>     remove a tool profile's packages that nothing else still needs
+
+Run 'dotctl profile <command> --help' for command-specific options.
+EOF
+		;;
+	*)
+		log::die "dotctl profile: unknown subcommand: ${sub} (see 'dotctl profile --help')"
+		;;
+	esac
+}
+
+cmd::profile_list() {
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+		-h | --help)
+			cat <<'EOF'
+Usage: dotctl profile list
+
+List every available tool profile (id, installed y/n, required-capability
+count, description). Read-only.
+EOF
+			exit 0
+			;;
+		*)
+			log::die "dotctl profile list: unknown option: $1 (see --help)"
+			;;
+		esac
+	done
+	profile::list
+}
+
+cmd::profile_show() {
+	local id=""
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+		-h | --help)
+			cat <<'EOF'
+Usage: dotctl profile show <id>
+
+Show one tool profile's declared capabilities (resolved to real package
+names), preference defaults, recommended/conflicting profiles, hardware
+constraints, and install status. Read-only.
+EOF
+			exit 0
+			;;
+		-*)
+			log::die "dotctl profile show: unknown option: $1 (see --help)"
+			;;
+		*)
+			id=$1
+			shift
+			;;
+		esac
+	done
+	[[ -n $id ]] || log::die "dotctl profile show: specify a profile id (see --help)"
+	profile::show "$id"
+}
+
+cmd::profile_plan() {
+	cmd::_common_defaults
+	local id=""
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+		--host)
+			OPT_HOST=$2
+			shift 2
+			;;
+		--verbose)
+			set -x
+			shift
+			;;
+		-h | --help)
+			cat <<'EOF'
+Usage: dotctl profile plan <id> [options]
+
+  --host <name>   host profile to resolve hardware/preferences against
+                  (this IS the other, unrelated "host profile" sense — see
+                  'dotctl profile --help')
+  --verbose       more log output
+
+Preview what 'profile install <id>' would do: which packages are already
+present vs. would be installed, and which preference defaults would
+actually change. Read-only.
+EOF
+			exit 0
+			;;
+		-*)
+			log::die "dotctl profile plan: unknown option: $1 (see --help)"
+			;;
+		*)
+			id=$1
+			shift
+			;;
+		esac
+	done
+	[[ -n $id ]] || log::die "dotctl profile plan: specify a profile id (see --help)"
+	profile::plan "$id"
+}
+
+cmd::profile_install() {
+	cmd::_common_defaults
+	local id="" force=0
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+		--host)
+			OPT_HOST=$2
+			shift 2
+			;;
+		--force)
+			force=1
+			shift
+			;;
+		--dry-run)
+			OPT_DRY_RUN=1
+			shift
+			;;
+		--non-interactive)
+			OPT_NON_INTERACTIVE=1
+			shift
+			;;
+		--verbose)
+			set -x
+			shift
+			;;
+		-h | --help)
+			cat <<'EOF'
+Usage: dotctl profile install <id> [options]
+
+Installs the named TOOL profile's required capabilities as native packages
+(unrelated to --host/host profile selection elsewhere in dotctl).
+
+  --host <name>       host profile to resolve hardware/preferences against
+                      (this IS the other, unrelated "host profile" sense —
+                      see 'dotctl profile --help')
+  --force             proceed despite a declared profile conflict
+  --dry-run           print the plan, install nothing
+  --non-interactive   never prompt; refuse rather than guess
+EOF
+			exit 0
+			;;
+		-*)
+			log::die "dotctl profile install: unknown option: $1 (see --help)"
+			;;
+		*)
+			id=$1
+			shift
+			;;
+		esac
+	done
+	[[ -n $id ]] || log::die "dotctl profile install: specify a profile id (see --help)"
+	[[ $EUID -ne 0 ]] || log::die "refuse to run as root"
+
+	apply::ensure_state_dir
+	LOCK_FILE="${STATE_DIR}/lock"
+	exec 200>"$LOCK_FILE"
+	flock -n 200 || log::die "another install/update is already running (lock: ${LOCK_FILE})"
+
+	profile::install "$id" "$force"
+}
+
+cmd::profile_remove() {
+	cmd::_common_defaults
+	local id=""
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+		--dry-run)
+			OPT_DRY_RUN=1
+			shift
+			;;
+		--non-interactive)
+			OPT_NON_INTERACTIVE=1
+			shift
+			;;
+		--verbose)
+			set -x
+			shift
+			;;
+		-h | --help)
+			cat <<'EOF'
+Usage: dotctl profile remove <id> [options]
+
+Removes the named TOOL profile's packages that nothing else (no other
+installed profile, no core capability) still needs. Preferences it set are
+not automatically reverted.
+
+  --dry-run           print what would be removed, remove nothing
+  --non-interactive   never prompt; refuse rather than guess
+EOF
+			exit 0
+			;;
+		-*)
+			log::die "dotctl profile remove: unknown option: $1 (see --help)"
+			;;
+		*)
+			id=$1
+			shift
+			;;
+		esac
+	done
+	[[ -n $id ]] || log::die "dotctl profile remove: specify a profile id (see --help)"
+	[[ $EUID -ne 0 ]] || log::die "refuse to run as root"
+
+	apply::ensure_state_dir
+	LOCK_FILE="${STATE_DIR}/lock"
+	exec 200>"$LOCK_FILE"
+	flock -n 200 || log::die "another install/update is already running (lock: ${LOCK_FILE})"
+
+	profile::remove "$id"
+}
+
 [[ $# -ge 1 ]] || {
 	usage
 	exit 1
@@ -699,6 +952,7 @@ restore-config) cmd::restore_config "$@" ;;
 uninstall) cmd::uninstall "$@" ;;
 diagnose) cmd::diagnose "$@" ;;
 recover) cmd::recover "$@" ;;
+profile) cmd::profile "$@" ;;
 update) cmd::update "$@" ;;
 -h | --help)
 	usage

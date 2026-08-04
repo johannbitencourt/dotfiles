@@ -135,4 +135,29 @@ jq empty "$report_path" || fail "uninstall report is not valid JSON"
 [[ $(jq -r '.flags.remove_state' "$report_path") == true ]] || fail "report does not reflect remove_state=true"
 echo "PASS: report survives --remove-state, lives under .local/share, is valid JSON"
 
+# 6. A still-installed tool profile (profiles.json, entirely separate from
+#    install.json) is warned about, since this uninstall never touches it.
+FAKE_HOME=$(mktemp -d)
+trap 'rm -rf "$FAKE_HOME"' EXIT
+HOME=$FAKE_HOME
+seed_fixture "${HOME}/.local/state/dotfiles" "$HOME"
+printf '{"profiles":{"dev":{}}}\n' >"${HOME}/.local/state/dotfiles/profiles.json"
+OPT_NON_INTERACTIVE=1
+DISABLED_UNITS=()
+output=$(run_uninstall 0 0 0 0 2>&1)
+echo "$output" | grep -qi "tool profile(s) still installed" || fail "no warning shown for a still-installed tool profile: ${output}"
+echo "$output" | grep -q "dev" || fail "warning did not name the still-installed profile: ${output}"
+echo "PASS: a still-installed tool profile is warned about, not silently left untouched"
+
+# 7. No profiles.json at all: no warning (today's common case).
+FAKE_HOME=$(mktemp -d)
+trap 'rm -rf "$FAKE_HOME"' EXIT
+HOME=$FAKE_HOME
+seed_fixture "${HOME}/.local/state/dotfiles" "$HOME"
+OPT_NON_INTERACTIVE=1
+DISABLED_UNITS=()
+output=$(run_uninstall 0 0 0 0 2>&1)
+echo "$output" | grep -qi "tool profile(s) still installed" && fail "unexpected profile warning with no profiles.json at all: ${output}"
+echo "PASS: no profiles.json -> no warning"
+
 echo "ALL PASS"
