@@ -10,6 +10,25 @@ foot
 fuzzel
 mako
 hyprlock
+hypridle
+waybar
+
+# wallpaper — a solid colour, so no image asset is needed
+swaybg
+
+# screenshots. also xdg-desktop-portal-hyprland's optional deps: without them
+# the screenshot/screencast portal doesn't work for other apps either.
+grim
+slurp
+
+# laptop function keys (volume goes through wpctl, from wireplumber)
+brightnessctl
+
+# notify-send, used by the SUPER+B status bind. mako does NOT pull this in.
+libnotify
+
+# Qt apps run native Wayland instead of falling back to XWayland
+qt6-wayland
 
 # font referenced by foot.ini and fuzzel.ini
 ttf-jetbrains-mono-nerd

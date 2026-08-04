@@ -1,18 +1,26 @@
 # dotfiles — minimal Hyprland
 
-A Hyprland desktop in eight files. The Hyprland config is Lua
+A small Hyprland desktop. The Hyprland config is Lua
 (`config/hypr/hyprland.lua`), not hyprlang — hyprlang was deprecated in
 Hyprland 0.55 and is slated for removal around 0.57.
 
 ```
 config/hypr/hyprland.lua    compositor: monitors, input, look, autostart, binds
-config/hypr/hyprlock.conf   lock screen (hyprlock is a separate project, still hyprlang)
+config/hypr/hyprlock.conf   lock screen (hyprlock is separate, still hyprlang)
+config/hypr/hypridle.conf   lock at 5 min, screen off at 6 min
+config/waybar/config.jsonc  bar: workspaces, clock, network, battery, volume
+config/waybar/style.css     bar styling
 config/foot/foot.ini        terminal
 config/fuzzel/fuzzel.ini    launcher
 config/mako/config          notifications
 packages.txt                what to install
 install.sh                  installs packages, symlinks config/* into ~/.config/*
 ```
+
+Started from `hyprland.lua` with no config of their own: `swaybg` (solid
+colour background), `hyprpolkitagent` (GUI auth prompts), and `grim`/`slurp`
+(screenshots — also what makes the desktop portal's screenshot and screencast
+path work for other apps).
 
 ## Install
 
@@ -81,11 +89,16 @@ before changing it.
 | `F` | fullscreen |
 | `V` | toggle floating |
 | `SHIFT + E` | exit Hyprland |
+| `SHIFT + S` | screenshot region to clipboard |
+| `B` | status notification: time, battery, network |
 | arrows | move focus |
 | `SHIFT` + arrows | move window |
 | `1`–`5` | switch workspace |
 | `SHIFT` + `1`–`5` | move window to workspace |
 | drag / right-drag | move / resize window |
+
+Volume and brightness function keys are bound too, and keep working while the
+lock screen is up.
 
 ## Changing things
 
