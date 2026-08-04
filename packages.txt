@@ -1,0 +1,26 @@
+# Packages this setup needs, installed by install.sh with
+#   sudo pacman -S --needed
+# Blank lines and #-comments are ignored. All are in the official repos.
+
+# compositor
+hyprland
+
+# the apps configured under config/
+foot
+fuzzel
+mako
+hyprlock
+
+# font referenced by foot.ini and fuzzel.ini
+ttf-jetbrains-mono-nerd
+
+# clipboard, screen sharing / file pickers, GUI authentication prompts
+wl-clipboard
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+hyprpolkitagent
+
+# audio — nothing here configures it, but a desktop without sound is no fun
+pipewire
+pipewire-pulse
+wireplumber

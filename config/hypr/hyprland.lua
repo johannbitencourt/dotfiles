@@ -26,6 +26,8 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("dbus-update-activation-environment --systemd "
         .. "WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE HYPRLAND_INSTANCE_SIGNATURE")
     hl.exec_cmd("mako")
+    -- GUI authentication prompts (e.g. mounting a disk, editing a system file)
+    hl.exec_cmd("/usr/lib/hyprpolkitagent/hyprpolkitagent")
 end)
 
 local mod = "SUPER"

@@ -1,6 +1,6 @@
 # dotfiles — minimal Hyprland
 
-A Hyprland desktop in seven files. The Hyprland config is Lua
+A Hyprland desktop in eight files. The Hyprland config is Lua
 (`config/hypr/hyprland.lua`), not hyprlang — hyprlang was deprecated in
 Hyprland 0.55 and is slated for removal around 0.57.
 
@@ -10,22 +10,27 @@ config/hypr/hyprlock.conf   lock screen (hyprlock is a separate project, still h
 config/foot/foot.ini        terminal
 config/fuzzel/fuzzel.ini    launcher
 config/mako/config          notifications
-install.sh                  symlinks config/* into ~/.config/*
+packages.txt                what to install
+install.sh                  installs packages, symlinks config/* into ~/.config/*
 ```
 
 ## Install
 
-```bash
-sudo pacman -S --needed hyprland foot fuzzel mako hyprlock \
-    ttf-jetbrains-mono-nerd wl-clipboard xdg-desktop-portal-hyprland
+On a fresh machine, this is the whole thing:
 
+```bash
 ./install.sh
 ```
 
-`install.sh` symlinks each directory under `config/` to the matching path in
-`~/.config`, moving any existing real directory aside to `<name>.bak` first.
-Because the links point at the repo, editing a file here takes effect
-directly. To uninstall, delete the symlinks.
+It reads `packages.txt`, runs `sudo pacman -S --needed` on the list (so it
+prompts once for your password and skips anything already present), then
+symlinks each directory under `config/` to the matching path in `~/.config`,
+moving any existing real directory aside to `<name>.bak` first. Every package
+is in the official repos — no AUR helper needed.
+
+Pass `--no-packages` to only do the symlinking. Because the links point at the
+repo, editing a file here takes effect directly. To uninstall, delete the
+symlinks.
 
 ## Starting a session
 
