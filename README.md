@@ -27,11 +27,41 @@ sudo pacman -S --needed hyprland foot fuzzel mako hyprlock \
 Because the links point at the repo, editing a file here takes effect
 directly. To uninstall, delete the symlinks.
 
-Start the session from a TTY:
+## Starting a session
+
+From a TTY, either works — `Hyprland` directly, or the wrapper the package
+ships and the desktop entry uses:
 
 ```bash
-Hyprland
+start-hyprland
 ```
+
+### Booting into it
+
+This repo installs no session entry and touches nothing outside `~/.config`.
+It doesn't need to: the `hyprland` package already ships
+`/usr/share/wayland-sessions/hyprland.desktop`, which runs
+`/usr/bin/start-hyprland`. Both are package-owned, so they survive updates and
+need no maintenance here.
+
+Point your display manager at that entry. For SDDM autologin, the session name
+is the desktop file's basename:
+
+```ini
+# /etc/sddm.conf.d/autologin.conf  (root)
+[Autologin]
+User=<you>
+Session=hyprland
+```
+
+Nothing else is required — no uwsm, no `systemd --user` target, no session
+wrapper script. Hyprland's own `hyprland.start` handler in `hyprland.lua`
+pushes `WAYLAND_DISPLAY` and `HYPRLAND_INSTANCE_SIGNATURE` into the D-Bus
+activation environment so portals work.
+
+Note that files under `/etc/sddm.conf.d/` are usually unowned by any package —
+whatever installed your current setup wrote them by hand, so check what's there
+before changing it.
 
 ## Keybindings
 
