@@ -46,6 +46,10 @@ hl.bind(mod .. " + W",         hl.dsp.window.close())
 hl.bind(mod .. " + F",         hl.dsp.window.fullscreen())
 hl.bind(mod .. " + V",         hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mod .. " + SHIFT + E", hl.dsp.exit())
+-- Power menu. Escaping fuzzel leaves no argument at all (unquoted expansion),
+-- so systemctl just lists units instead of doing anything.
+hl.bind(mod .. " + SHIFT + Q", hl.dsp.exec_cmd(
+    "systemctl $(printf 'suspend\\nreboot\\npoweroff' | fuzzel --dmenu)"))
 
 for _, dir in ipairs({ "left", "right", "up", "down" }) do
     hl.bind(mod .. " + " .. dir,         hl.dsp.focus({ direction = dir }))
