@@ -10,6 +10,16 @@ hyprland::validate() {
 	local conf_d="${STAGE_DIR}/config/hypr/conf.d"
 	[[ -d $conf_d ]] || log::die "hyprland::validate: no conf.d staged at ${conf_d}"
 
+	# On a fresh machine (or --dry-run/--config-only before packages are
+	# installed), the Hyprland binary itself doesn't exist yet — running it
+	# would just fail with a bash "command not found", which looks like a
+	# broken config, not a missing binary. Skip gracefully; the real check
+	# runs on the next validate/apply once Hyprland is actually installed.
+	if ! command -v Hyprland &>/dev/null; then
+		log::info "hyprland::validate: SKIP (Hyprland not installed yet)"
+		return 0
+	fi
+
 	local flattened
 	flattened=$(mktemp)
 	cat "${conf_d}"/*.conf >"$flattened" 2>/dev/null

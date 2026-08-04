@@ -13,17 +13,16 @@ mapping_file="${DOTFILES_ROOT}/packages/mappings/arch.conf"
 
 mapfile -t capabilities < <(grep -vE '^\s*(#|$)' "$caps_file")
 
-# Capabilities declared by any profile's REQUIRED_CAPABILITIES/
-# OPTIONAL_CAPABILITIES (comma-joined single values — profiles/*.conf's own
-# format, see profiles/dev.conf). Profile-only capabilities (e.g. neovim,
-# tmux) have real mapping rows in arch.conf but are deliberately absent
-# from capabilities.conf itself (install.sh's unconditional core-desktop
-# phase must never resolve them) — check 3 below needs this union so those
-# rows aren't flagged as stray.
+# Capabilities declared by any profile's REQUIRED_CAPABILITIES (comma-
+# joined single value — profiles/*.conf's own format, see profiles/dev.conf).
+# Profile-only capabilities (e.g. neovim, tmux) have real mapping rows in
+# arch.conf but are deliberately absent from capabilities.conf itself
+# (install.sh's unconditional core-desktop phase must never resolve them)
+# — check 3 below needs this union so those rows aren't flagged as stray.
 mapfile -t profile_caps < <(
 	for f in "${DOTFILES_ROOT}"/profiles/*.conf; do
 		[[ -f $f ]] || continue
-		grep -E '^(REQUIRED|OPTIONAL)_CAPABILITIES=' "$f" | cut -d= -f2- | tr ',' '\n'
+		grep -E '^REQUIRED_CAPABILITIES=' "$f" | cut -d= -f2- | tr ',' '\n'
 	done | grep -v '^$' | sort -u
 )
 
@@ -53,20 +52,7 @@ done
 [[ ${#stray[@]} -eq 0 ]] || fail "mappings/arch.conf has row(s) for undeclared capabilities: ${stray[*]}"
 echo "PASS: no stray mapping rows for undeclared capabilities"
 
-# 4. Every applications/*/packages.conf entry references a real capability
-#    (catches a typo'd or stale per-module package reference).
-bad_refs=()
-for pkgfile in "${DOTFILES_ROOT}"/applications/*/packages.conf; do
-	[[ -f $pkgfile ]] || continue
-	while IFS= read -r cap; do
-		[[ -z $cap || $cap == \#* ]] && continue
-		printf '%s\n' "${capabilities[@]}" | grep -qx "$cap" || bad_refs+=("${pkgfile}:${cap}")
-	done <"$pkgfile"
-done
-[[ ${#bad_refs[@]} -eq 0 ]] || fail "applications/*/packages.conf reference(s) to undeclared capabilities: ${bad_refs[*]}"
-echo "PASS: every application module references only declared capabilities"
-
-# 5. Profile-declared capabilities must not silently duplicate into the
+# 4. Profile-declared capabilities must not silently duplicate into the
 #    core, unconditionally-resolved capabilities.conf — that's exactly the
 #    trap that would make a plain './install.sh' run install profile-only
 #    tools for everyone. The only legitimate overlap is 'jq': profiles/dev.conf

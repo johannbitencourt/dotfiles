@@ -15,25 +15,15 @@
 # snapshot") is HLD's own Phase 6 and this host has no backend — skipped
 # entirely, not stubbed.
 
-# update::_confirm_upgrade — dies under --non-interactive or on decline.
-# Reuses commit::_confirm_overwrite's die-under-non-interactive/prompt/
-# die-on-decline *shape* (a fourth generic confirm helper would be one too
-# many), but stays its own function with its own message: a full-system
-# pacman upgrade isn't "an overwrite conflict." Deliberately NOT
-# uninstall::_confirm's proceed-under-non-interactive idiom either:
-# uninstall's scope is fully known in advance (project-owned files/services
-# only) and config-restorable; a system upgrade's package set is only known
-# at runtime and is NOT automatically reversible. HLD 17.2 says "only after
-# approval" — under no controlling TTY, "refuse rather than guess" is the
-# safe read of that line.
+# update::_confirm_upgrade — dies under --non-interactive or on decline
+# (cli::confirm_or_die's shared shape). Deliberately NOT uninstall::_confirm's
+# proceed-under-non-interactive idiom: uninstall's scope is fully known in
+# advance (project-owned files/services only) and config-restorable; a
+# system upgrade's package set is only known at runtime and is NOT
+# automatically reversible. HLD 17.2 says "only after approval" — under no
+# controlling TTY, "refuse rather than guess" is the safe read of that line.
 update::_confirm_upgrade() {
-	if [[ $OPT_NON_INTERACTIVE -eq 1 ]]; then
-		log::die "update packages: refusing to upgrade without confirmation (--non-interactive)"
-	fi
-	log::warn "update packages: the plan above is about to be applied"
-	local reply=""
-	read -r -p "  Proceed with the upgrade? [y/N] " reply </dev/tty
-	[[ $reply == [yY] ]] || log::die "update packages: aborted by user"
+	cli::confirm_or_die "update packages" "the plan above is about to be applied" "Proceed with the upgrade?"
 }
 
 # update::_write_report <outcome> <plan-output> <upgrade-output>

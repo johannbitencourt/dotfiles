@@ -38,6 +38,10 @@ recover::_check_hyprland_config() {
 	RECOVER_HYPRLAND_CONFIG_BROKEN=0
 	local conf_d="${HOME}/.config/hypr/conf.d"
 	[[ -d $conf_d ]] || return 1
+	# Not installed yet isn't "broken" — that's install's job, not recover's;
+	# offering to "regenerate config" here would be a category error, same
+	# reasoning as recover::_check_systemd_units's own install.json gate below.
+	command -v Hyprland &>/dev/null || return 1
 
 	local flattened
 	flattened=$(mktemp)

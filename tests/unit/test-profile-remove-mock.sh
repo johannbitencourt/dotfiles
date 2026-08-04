@@ -95,7 +95,7 @@ OPT_DRY_RUN=0
 OPT_NON_INTERACTIVE=1
 output=$(profile::remove dev </dev/null 2>&1) && rc=0 || rc=$?
 [[ $rc -ne 0 ]] || fail "profile remove under --non-interactive with removable packages unexpectedly succeeded"
-echo "$output" | grep -qi "refusing to proceed without confirmation" || fail "unexpected failure message: ${output}"
+echo "$output" | grep -qi "refusing without confirmation" || fail "unexpected failure message: ${output}"
 jq -e '.profiles.dev' "${STATE_DIR}/profiles.json" >/dev/null || fail "the dev entry was deleted despite refusing to remove"
 [[ $captured_remove == "<not called>" ]] || fail "adapter_remove_packages was called under --non-interactive: ${captured_remove}"
 echo "PASS: --non-interactive refuses to remove rather than guessing when confirmation is needed"

@@ -138,6 +138,10 @@ doctor::_check_hyprland_config() {
 		doctor::_record hyprland-config SKIP "${conf_d} does not exist yet"
 		return
 	fi
+	if ! command -v Hyprland &>/dev/null; then
+		doctor::_record hyprland-config SKIP "Hyprland is not installed yet"
+		return
+	fi
 
 	local flattened
 	flattened=$(mktemp)
@@ -257,25 +261,49 @@ doctor::_check_dbus_env() {
 # from a single `hyprctl monitors` call, exactly as planned: a monitor
 # actively reporting through hyprctl implies the GPU is rendering. A real
 # Vulkan/EGL probe is out of scope here (that's the excluded gaming check).
-# Reads HYPRLAND_INSTANCE_SIGNATURE from /proc/<marker-pid>/environ so this
-# works even when dotctl itself isn't running inside that Hyprland session
-# (e.g. invoked from a plain TTY or over SSH).
+# Finds the marked session's HYPRLAND_INSTANCE_SIGNATURE via its IPC socket
+# directory under $XDG_RUNTIME_DIR/hypr/, so this works even when dotctl
+# itself isn't running inside that Hyprland session (e.g. invoked from a
+# plain TTY or over SSH). NOT read from /proc/<marker-pid>/environ — that
+# was tried and confirmed broken: Hyprland sets this var on itself via
+# setenv() after its own exec, which /proc/<pid>/environ (a snapshot taken
+# at exec time) never reflects, verified directly against a real running
+# Hyprland instance.
 doctor::_check_monitors() {
 	if ! session::marker_active; then
 		doctor::_record monitors PENDING "no dotfiles-hyprland session detected"
 		return
 	fi
-	local sig out count
-	sig=$(tr '\0' '\n' <"/proc/${SESSION_MARKER_PID}/environ" 2>/dev/null | sed -n 's/^HYPRLAND_INSTANCE_SIGNATURE=//p')
-	if [[ -z $sig ]]; then
-		doctor::_record monitors WARN "HYPRLAND_INSTANCE_SIGNATURE not found for the marked session"
+
+	local runtime_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+	local -a sigs
+	mapfile -t sigs < <(find "${runtime_dir}/hypr" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null)
+	local sig
+	case ${#sigs[@]} in
+	0)
+		doctor::_record monitors WARN "no Hyprland IPC socket found under ${runtime_dir}/hypr"
 		return
-	fi
+		;;
+	1)
+		sig=${sigs[0]}
+		;;
+	*)
+		doctor::_record monitors WARN "multiple Hyprland instances found under ${runtime_dir}/hypr; can't tell which is the marked session"
+		return
+		;;
+	esac
+
+	local out count
 	if ! out=$(hyprctl -i "$sig" monitors 2>/dev/null); then
 		doctor::_record monitors WARN "hyprctl monitors failed for the marked session"
 		return
 	fi
-	count=$(printf '%s\n' "$out" | grep -c '^Monitor ')
+	# grep -c's own exit status reflects "at least one match", not whether
+	# it ran successfully — zero matches (hyprctl reachable, zero monitors,
+	# the exact case the branch below exists to report) exits 1, which
+	# would otherwise silently kill this whole bare assignment under
+	# pipefail before the branch is ever reached.
+	count=$(printf '%s\n' "$out" | grep -c '^Monitor ') || true
 	if ((count > 0)); then
 		doctor::_record monitors PASS "${count} monitor(s) reporting via hyprctl (GPU actively rendering)"
 	else

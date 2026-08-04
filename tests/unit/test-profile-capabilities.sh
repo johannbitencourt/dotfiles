@@ -11,13 +11,12 @@ fail() {
 source "${DOTFILES_ROOT}/scripts/lib/log.sh"
 source "${DOTFILES_ROOT}/install/adapters/arch.sh"
 
-# 1. Every dev.conf/core.conf required+optional capability resolves to a
-#    real Arch package row — a stale/typo'd capability name would silently
-#    make 'dotctl profile install' die at runtime instead of being caught
-#    here.
+# 1. Every profile's required capability resolves to a real Arch package
+#    row — a stale/typo'd capability name would silently make 'dotctl
+#    profile install' die at runtime instead of being caught here.
 for f in "${DOTFILES_ROOT}"/profiles/*.conf; do
 	while IFS='=' read -r key value; do
-		[[ $key == REQUIRED_CAPABILITIES || $key == OPTIONAL_CAPABILITIES ]] || continue
+		[[ $key == REQUIRED_CAPABILITIES ]] || continue
 		[[ -z $value ]] && continue
 		IFS=',' read -ra caps <<<"$value"
 		for cap in "${caps[@]}"; do

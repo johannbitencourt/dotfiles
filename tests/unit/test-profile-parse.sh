@@ -31,16 +31,15 @@ profile::_split_preference_defaults "${dev[PREFERENCE_DEFAULTS]}" prefs
 [[ ${prefs[EDITOR]} == nvim ]] || fail "expected EDITOR=nvim, got: ${prefs[EDITOR]:-<unset>}"
 echo "PASS: PREFERENCE_DEFAULTS=EDITOR=nvim splits to prefs[EDITOR]=nvim"
 
-# 3. profiles/core.conf's empty list fields parse without error (the
-#    zero-capability edge dev.conf never exercises).
-declare -A core=()
-kv_parse_file "${DOTFILES_ROOT}/profiles/core.conf" core
-[[ ${core[PROFILE_ID]} == core ]] || fail "PROFILE_ID not parsed for core.conf: ${core[PROFILE_ID]:-<unset>}"
-mapfile -t core_caps < <(profile::_split_list "${core[REQUIRED_CAPABILITIES]}")
-[[ ${#core_caps[@]} -eq 0 ]] || fail "expected zero required capabilities for core.conf, got: ${core_caps[*]}"
-declare -A core_prefs=()
-profile::_split_preference_defaults "${core[PREFERENCE_DEFAULTS]}" core_prefs
-[[ ${#core_prefs[@]} -eq 0 ]] || fail "expected zero preference defaults for core.conf, got: ${!core_prefs[*]}"
-echo "PASS: profiles/core.conf's empty list fields parse cleanly (zero-capability edge)"
+# 3. Empty list fields parse without error (the zero-capability edge
+#    dev.conf never exercises) — an inline fixture, not a whole shipped
+#    profile file just to prove kv_parse_file/profile::_split_* handle "".
+declare -A empty=([PROFILE_ID]=empty [REQUIRED_CAPABILITIES]= [PREFERENCE_DEFAULTS]=)
+mapfile -t empty_caps < <(profile::_split_list "${empty[REQUIRED_CAPABILITIES]}")
+[[ ${#empty_caps[@]} -eq 0 ]] || fail "expected zero required capabilities for an empty field, got: ${empty_caps[*]}"
+declare -A empty_prefs=()
+profile::_split_preference_defaults "${empty[PREFERENCE_DEFAULTS]}" empty_prefs
+[[ ${#empty_prefs[@]} -eq 0 ]] || fail "expected zero preference defaults for an empty field, got: ${!empty_prefs[*]}"
+echo "PASS: empty list fields parse cleanly (zero-capability edge)"
 
 echo "ALL PASS"

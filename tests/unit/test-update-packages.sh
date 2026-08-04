@@ -54,7 +54,7 @@ adapter_upgrade_system() { fail "adapter_upgrade_system must not be called under
 OPT_NON_INTERACTIVE=1
 output=$(update::packages_run 2>&1) && rc=0 || rc=$?
 [[ $rc -ne 0 ]] || fail "update::packages_run under --non-interactive with a pending upgrade unexpectedly succeeded"
-echo "$output" | grep -qi "refusing to upgrade without confirmation" || fail "unexpected failure message: ${output}"
+echo "$output" | grep -qi "refusing without confirmation" || fail "unexpected failure message: ${output}"
 [[ -z $(reports) ]] || fail "a report was written despite refusing to upgrade"
 echo "PASS: --non-interactive refuses to upgrade rather than guessing, no report"
 OPT_NON_INTERACTIVE=0

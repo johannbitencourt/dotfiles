@@ -19,9 +19,19 @@
 #   adapter_enable_system_service <unit>
 #   adapter_disable_system_service <unit>
 
+# Accepts ID=arch, or any Arch derivative that sets ID_LIKE=arch per the
+# os-release(5) spec (CachyOS, EndeavourOS, Manjaro, etc. all do this) —
+# matches HLD 6.2's own Arch-family tier table, which lists CachyOS and
+# EndeavourOS alongside Arch Linux itself, not just a literal ID=arch.
+# Support is meant to come from a real compatibility manifest (HLD 6.3),
+# not just /etc/os-release — that manifest (tiers, --experimental,
+# known-issues) is unbuilt Phase 3 scope; this is the minimal fix for the
+# concrete bug (CachyOS rejected outright) without building it early.
 adapter_detect() {
-	[[ -r /etc/os-release ]] || return 1
-	grep -qx 'ID=arch' /etc/os-release
+	local os_release=${1:-/etc/os-release}
+	[[ -r $os_release ]] || return 1
+	grep -qx 'ID=arch' "$os_release" && return 0
+	grep -qE '^ID_LIKE=.*\barch\b' "$os_release"
 }
 
 # adapter_resolve_capability <capability>

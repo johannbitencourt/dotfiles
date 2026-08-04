@@ -24,13 +24,18 @@
 # adding a profile-only tool there would install it for every user on
 # every plain './install.sh' run, regardless of whether any profile
 # requested it.
+#
+# Fields kept deliberately minimal: PROFILE_ID, PROFILE_DESCRIPTION,
+# REQUIRED_CAPABILITIES, PREFERENCE_DEFAULTS. HLD 9.8 also lists optional
+# capabilities, recommended/conflicting profiles, and hardware constraints
+# as profile metadata — dropped here (ponytail: "dev", the only profile
+# this project ships, never sets any of them). Add back whichever one a
+# real profile actually needs once that profile exists, not before.
 
 # profile::_split_list <comma-joined-value>
-# Splits a profile file's comma-joined list field (REQUIRED_CAPABILITIES,
-# OPTIONAL_CAPABILITIES, RECOMMENDED_PROFILES, CONFLICTING_PROFILES,
-# HARDWARE_CONSTRAINTS) into one item per line. Empty input prints nothing
-# (zero items, not one empty item) — kv_parse_file itself has no list
-# support; this is the caller-side split every profile list field uses.
+# Splits REQUIRED_CAPABILITIES into one item per line. Empty input prints
+# nothing (zero items, not one empty item) — kv_parse_file itself has no
+# list support; this is the caller-side split.
 profile::_split_list() {
 	local value=$1
 	[[ -z $value ]] && return 0
@@ -106,10 +111,9 @@ profile::_is_installed() {
 }
 
 # profile::_join_or_none <array-name> — "none" for an empty array, else a
-# comma-space-joined list. Small helper shared by show/plan's display of
-# RECOMMENDED_PROFILES/CONFLICTING_PROFILES/HARDWARE_CONSTRAINTS, none of
-# which can rely on bash's ${arr[*]:-none} (an empty array expands to an
-# empty STRING, not unset, so that idiom never triggers the fallback).
+# comma-space-joined list. bash's ${arr[*]:-none} can't do this (an empty
+# array expands to an empty STRING, not unset, so that idiom never
+# triggers the fallback).
 profile::_join_or_none() {
 	local -n _join_ref=$1
 	if [[ ${#_join_ref[@]} -eq 0 ]]; then
@@ -118,6 +122,30 @@ profile::_join_or_none() {
 	fi
 	local IFS=', '
 	printf '%s' "${_join_ref[*]}"
+}
+
+# profile::_resolve_required <fields-array-name> <present-out-array-name> <missing-out-array-name>
+# Resolves REQUIRED_CAPABILITIES to real packages and partitions them by
+# whether each is already installed. Shared by profile::plan (preview) and
+# profile::install (the same resolution, right before acting on it) — both
+# had their own identical copy of this loop.
+profile::_resolve_required() {
+	local -n _res_fields_ref=$1
+	local -n _res_present_ref=$2
+	local -n _res_missing_ref=$3
+
+	local -a required
+	mapfile -t required < <(profile::_split_list "${_res_fields_ref[REQUIRED_CAPABILITIES]:-}")
+
+	local cap pkg
+	for cap in "${required[@]}"; do
+		pkg=$(adapter_resolve_capability "$cap") || log::die "profile: capability unsupported by this adapter: ${cap}"
+		if adapter_package_installed "$pkg"; then
+			_res_present_ref+=("$pkg")
+		else
+			_res_missing_ref+=("$pkg")
+		fi
+	done
 }
 
 # profile::list — every available profile: id, installed y/n, required-
@@ -150,12 +178,8 @@ profile::show() {
 	local -A fields=()
 	profile::_load "$id" fields
 
-	local -a required optional recommends conflicts constraints
+	local -a required
 	mapfile -t required < <(profile::_split_list "${fields[REQUIRED_CAPABILITIES]:-}")
-	mapfile -t optional < <(profile::_split_list "${fields[OPTIONAL_CAPABILITIES]:-}")
-	mapfile -t recommends < <(profile::_split_list "${fields[RECOMMENDED_PROFILES]:-}")
-	mapfile -t conflicts < <(profile::_split_list "${fields[CONFLICTING_PROFILES]:-}")
-	mapfile -t constraints < <(profile::_split_list "${fields[HARDWARE_CONSTRAINTS]:-}")
 	local -A prefs=()
 	profile::_split_preference_defaults "${fields[PREFERENCE_DEFAULTS]:-}" prefs
 
@@ -173,12 +197,6 @@ profile::show() {
 		printf '  - %-12s -> %s\n' "$cap" "$pkg"
 	done
 
-	printf 'optional capabilities (%d):\n' "${#optional[@]}"
-	for cap in "${optional[@]}"; do
-		pkg=$(adapter_resolve_capability "$cap" 2>/dev/null) || pkg=unsupported
-		printf '  - %-12s -> %s\n' "$cap" "$pkg"
-	done
-
 	if [[ ${#prefs[@]} -eq 0 ]]; then
 		printf 'preference defaults : none\n'
 	else
@@ -186,70 +204,12 @@ profile::show() {
 		local k
 		for k in "${!prefs[@]}"; do printf '  - %s=%s\n' "$k" "${prefs[$k]}"; done
 	fi
-
-	printf 'recommended profiles: %s\n' "$(profile::_join_or_none recommends)"
-	printf 'conflicting profiles: %s\n' "$(profile::_join_or_none conflicts)"
-	printf 'hardware constraints: %s\n' "$(profile::_join_or_none constraints)"
-}
-
-# profile::_check_conflicts <id> <fields-array-name>
-# CONFLICTING_PROFILES is a comma-joined list of profile ids. Logs a
-# warning per declared conflict that's currently installed. Returns 0
-# (bash-true) if any conflict is currently installed, 1 if all clear (or
-# none declared) — a declared conflict is the profile author's explicit
-# "these don't coexist," so this always warns rather than staying silent,
-# regardless of caller.
-profile::_check_conflicts() {
-	local id=$1
-	local -n _conf_fields_ref=$2
-	local -a conflicts
-	mapfile -t conflicts < <(profile::_split_list "${_conf_fields_ref[CONFLICTING_PROFILES]:-}")
-	[[ ${#conflicts[@]} -eq 0 ]] && return 1
-
-	local -a installed
-	mapfile -t installed < <(profile::_installed_ids)
-
-	local any_conflict=1
-	local c
-	for c in "${conflicts[@]}"; do
-		if printf '%s\n' "${installed[@]}" | grep -qx "$c"; then
-			log::warn "profile ${id}: declared conflict '${c}' is currently installed"
-			any_conflict=0
-		fi
-	done
-	return $any_conflict
-}
-
-# profile::_check_hardware_constraints <id> <fields-array-name>
-# HARDWARE_CONSTRAINTS is a comma-joined list of KEY=VALUE pairs, same
-# shape as PREFERENCE_DEFAULTS (reuses the same split), checked against the
-# resolved HOST array. Logs a warning per unmet constraint. Returns 0
-# (bash-true) if any constraint is unmet, 1 if all satisfied (or none
-# declared).
-profile::_check_hardware_constraints() {
-	local id=$1
-	local -n _hw_fields_ref=$2
-	local -A constraints=()
-	profile::_split_preference_defaults "${_hw_fields_ref[HARDWARE_CONSTRAINTS]:-}" constraints
-	[[ ${#constraints[@]} -eq 0 ]] && return 1
-
-	local any_unmet=1
-	local k
-	for k in "${!constraints[@]}"; do
-		if [[ "${HOST[$k]:-}" != "${constraints[$k]}" ]]; then
-			log::warn "profile ${id}: hardware constraint unmet: ${k}=${constraints[$k]} (this host: ${HOST[$k]:-<unset>})"
-			any_unmet=0
-		fi
-	done
-	return $any_unmet
 }
 
 # profile::plan <id> — preview of what 'profile install <id>' would do.
 # Read-only: resolves capabilities and partitions present/missing without
 # ever calling adapter_install_packages, and shows which PREFERENCE_DEFAULTS
-# keys would actually change the currently-resolved HOST value. Conflicts
-# and hardware constraints are warned about here (never gated) — a preview
-# must never lie about what 'install' would hit.
+# keys would actually change the currently-resolved HOST value.
 profile::plan() {
 	apply::ensure_state_dir
 	local id=$1
@@ -258,22 +218,8 @@ profile::plan() {
 
 	apply::detect_and_plan_host
 
-	profile::_check_conflicts "$id" fields || true
-	profile::_check_hardware_constraints "$id" fields || true
-
-	local -a required
-	mapfile -t required < <(profile::_split_list "${fields[REQUIRED_CAPABILITIES]:-}")
-
 	local -a present=() missing=()
-	local cap pkg
-	for cap in "${required[@]}"; do
-		pkg=$(adapter_resolve_capability "$cap") || log::die "profile plan: capability unsupported by this adapter: ${cap}"
-		if adapter_package_installed "$pkg"; then
-			present+=("$pkg")
-		else
-			missing+=("$pkg")
-		fi
-	done
+	profile::_resolve_required fields present missing
 
 	printf '\nProfile plan: %s\n' "$id"
 	printf '  packages present (%d): %s\n' "${#present[@]}" "$(profile::_join_or_none present)"
@@ -296,23 +242,14 @@ profile::plan() {
 }
 
 # profile::_confirm <description>
-# Dies under --non-interactive or on decline; prompts on a real TTY
-# otherwise. Reuses commit::_confirm_overwrite/update::_confirm_upgrade's
-# shape (die-under-non-interactive/prompt/die-on-decline) — not
-# uninstall::_confirm's proceed-under-non-interactive shape: uninstall's
-# scope is fully known just from having invoked the command; a profile
-# install/remove's real scope (which packages, whether a conflict exists,
-# how many orphan on remove) is only known after runtime resolution, same
-# reasoning update::_confirm_upgrade already used.
+# Dies under --non-interactive or on decline (cli::confirm_or_die's shared
+# shape) — not uninstall::_confirm's proceed-under-non-interactive shape:
+# uninstall's scope is fully known just from having invoked the command; a
+# profile install/remove's real scope (which packages, how many orphan on
+# remove) is only known after runtime resolution.
 profile::_confirm() {
 	local description=$1
-	if [[ $OPT_NON_INTERACTIVE -eq 1 ]]; then
-		log::die "profile: refusing to proceed without confirmation (--non-interactive): ${description}"
-	fi
-	log::warn "profile: ${description}"
-	local reply=""
-	read -r -p "  Proceed? [y/N] " reply </dev/tty
-	[[ $reply == [yY] ]] || log::die "profile: aborted by user"
+	cli::confirm_or_die profile "$description" "Proceed?"
 }
 
 # profile::_array_to_json <array-name>
@@ -389,7 +326,7 @@ profile::_record_install() {
 # transaction machinery for.
 profile::install() {
 	apply::ensure_state_dir
-	local id=$1 force=${2:-0}
+	local id=$1
 	local -A fields=()
 	profile::_load "$id" fields
 
@@ -397,25 +334,10 @@ profile::install() {
 
 	apply::detect_and_plan_host
 
-	if profile::_check_conflicts "$id" fields; then
-		[[ $force -eq 1 ]] || log::die "profile install: '${id}' has a declared conflict with a currently-installed profile; pass --force to proceed anyway"
-	fi
-	profile::_check_hardware_constraints "$id" fields &&
-		log::die "profile install: '${id}' has an unmet hardware constraint on this host (see the warning above)"
-
 	local -a required
 	mapfile -t required < <(profile::_split_list "${fields[REQUIRED_CAPABILITIES]:-}")
-
 	local -a present=() missing=()
-	local cap pkg
-	for cap in "${required[@]}"; do
-		pkg=$(adapter_resolve_capability "$cap") || log::die "profile install: capability unsupported by this adapter: ${cap}"
-		if adapter_package_installed "$pkg"; then
-			present+=("$pkg")
-		else
-			missing+=("$pkg")
-		fi
-	done
+	profile::_resolve_required fields present missing
 
 	printf '\nProfile install: %s\n' "$id"
 	printf '  packages present (%d): %s\n' "${#present[@]}" "$(profile::_join_or_none present)"
@@ -443,12 +365,11 @@ profile::install() {
 
 # profile::_compute_orphans <id> <keep-array-name> <remove-array-name>
 # Classifies <id>'s recorded installed_by_profile packages into "keep"
-# (still required by another currently-installed profile's required/
-# optional capabilities, or by the core capability set) vs "remove"
-# (nothing else needs it). Split out of profile::remove so the actual
-# orphan-detection logic — the "removal impact" this whole feature exists
-# for — is testable directly, without going through profile::_confirm's
-# /dev/tty read.
+# (still required by another currently-installed profile's required
+# capabilities, or by the core capability set) vs "remove" (nothing else
+# needs it). Split out of profile::remove so the actual orphan-detection
+# logic — the "removal impact" this whole feature exists for — is testable
+# directly, without going through profile::_confirm's /dev/tty read.
 profile::_compute_orphans() {
 	local id=$1
 	local -n _orph_keep_ref=$2
@@ -467,10 +388,7 @@ profile::_compute_orphans() {
 		local -A ofields=()
 		profile::_load "$oid" ofields
 		local -a ocaps
-		mapfile -t ocaps < <(
-			profile::_split_list "${ofields[REQUIRED_CAPABILITIES]:-}"
-			profile::_split_list "${ofields[OPTIONAL_CAPABILITIES]:-}"
-		)
+		mapfile -t ocaps < <(profile::_split_list "${ofields[REQUIRED_CAPABILITIES]:-}")
 		for ocap in "${ocaps[@]}"; do
 			opkg=$(adapter_resolve_capability "$ocap" 2>/dev/null) || continue
 			other_pkgs+=("$opkg")

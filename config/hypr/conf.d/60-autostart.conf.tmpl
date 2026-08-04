@@ -1,6 +1,10 @@
-## WAYLAND_DISPLAY doesn't exist until Hyprland starts, so importing it into
-## the systemd/D-Bus activation environment — and starting the graphical
-## session target that owns Waybar/Mako/hypridle/swaybg — happens here
-## rather than in hypr-session.
+## WAYLAND_DISPLAY doesn't exist until Hyprland starts, so importing it (and
+## HYPRLAND_INSTANCE_SIGNATURE, needed by anything using Hyprland's IPC —
+## waybar's hyprland module, hypridle's hyprctl dispatch calls — neither of
+## which would otherwise work once started by systemd --user, a separate
+## process tree that never automatically inherits vars Hyprland sets on
+## itself after its own exec) into the systemd/D-Bus activation
+## environment — and starting the graphical session target that owns
+## Waybar/Mako/hypridle/swaybg — happens here rather than in hypr-session.
 
-exec-once = systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP && systemctl --user start dotfiles-graphical-session.target
+exec-once = systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE && systemctl --user start dotfiles-graphical-session.target

@@ -94,6 +94,18 @@ cmd::_common_defaults() {
 	OPT_NON_INTERACTIVE=0
 }
 
+# cmd::_acquire_lock — the project lock, taken directly (not via
+# apply::acquire_lock_and_txn) by every mutating command that mints no
+# config-commit transaction: restore-config, uninstall, update packages,
+# profile install/remove. `exec` here affects this same process's fd table,
+# not a subshell, so the lock is held for the rest of dotctl's run.
+cmd::_acquire_lock() {
+	apply::ensure_state_dir
+	LOCK_FILE="${STATE_DIR}/lock"
+	exec 200>"$LOCK_FILE"
+	flock -n 200 || log::die "another install/update is already running (lock: ${LOCK_FILE})"
+}
+
 cmd::apply() {
 	cmd::_common_defaults
 	while [[ $# -gt 0 ]]; do
@@ -289,9 +301,7 @@ EOF
 
 	# Takes the project lock directly rather than apply::acquire_lock_and_txn:
 	# this undoes a past transaction, it doesn't mint a new one.
-	LOCK_FILE="${STATE_DIR}/lock"
-	exec 200>"$LOCK_FILE"
-	flock -n 200 || log::die "another install/update is already running (lock: ${LOCK_FILE})"
+	cmd::_acquire_lock
 
 	rollback::restore_transaction "$txn"
 
@@ -360,10 +370,7 @@ EOF
 
 	[[ $EUID -ne 0 ]] || log::die "refuse to run as root"
 
-	apply::ensure_state_dir
-	LOCK_FILE="${STATE_DIR}/lock"
-	exec 200>"$LOCK_FILE"
-	flock -n 200 || log::die "another install/update is already running (lock: ${LOCK_FILE})"
+	cmd::_acquire_lock
 
 	uninstall::run "$remove_packages" "$remove_state" "$keep_config" "$dry_run"
 }
@@ -541,10 +548,7 @@ EOF
 
 	[[ $EUID -ne 0 ]] || log::die "refuse to run as root"
 
-	apply::ensure_state_dir
-	LOCK_FILE="${STATE_DIR}/lock"
-	exec 200>"$LOCK_FILE"
-	flock -n 200 || log::die "another install/update is already running (lock: ${LOCK_FILE})"
+	cmd::_acquire_lock
 
 	update::packages_run
 }
@@ -723,7 +727,7 @@ tool/workflow bundle; wherever this project means the other sense, it says
 Commands:
   list            list every available tool profile
   show <id>       show one tool profile's declared capabilities, preferences,
-                  recommendations/conflicts, and install status
+                  and install status
   plan <id>       preview what 'install <id>' would do — read-only
   install <id>    resolve, confirm, and install a tool profile's packages
   remove <id>     remove a tool profile's packages that nothing else still needs
@@ -766,8 +770,7 @@ cmd::profile_show() {
 Usage: dotctl profile show <id>
 
 Show one tool profile's declared capabilities (resolved to real package
-names), preference defaults, recommended/conflicting profiles, hardware
-constraints, and install status. Read-only.
+names), preference defaults, and install status. Read-only.
 EOF
 			exit 0
 			;;
@@ -827,16 +830,12 @@ EOF
 
 cmd::profile_install() {
 	cmd::_common_defaults
-	local id="" force=0
+	local id=""
 	while [[ $# -gt 0 ]]; do
 		case $1 in
 		--host)
 			OPT_HOST=$2
 			shift 2
-			;;
-		--force)
-			force=1
-			shift
 			;;
 		--dry-run)
 			OPT_DRY_RUN=1
@@ -860,7 +859,6 @@ Installs the named TOOL profile's required capabilities as native packages
   --host <name>       host profile to resolve hardware/preferences against
                       (this IS the other, unrelated "host profile" sense —
                       see 'dotctl profile --help')
-  --force             proceed despite a declared profile conflict
   --dry-run           print the plan, install nothing
   --non-interactive   never prompt; refuse rather than guess
 EOF
@@ -878,12 +876,9 @@ EOF
 	[[ -n $id ]] || log::die "dotctl profile install: specify a profile id (see --help)"
 	[[ $EUID -ne 0 ]] || log::die "refuse to run as root"
 
-	apply::ensure_state_dir
-	LOCK_FILE="${STATE_DIR}/lock"
-	exec 200>"$LOCK_FILE"
-	flock -n 200 || log::die "another install/update is already running (lock: ${LOCK_FILE})"
+	cmd::_acquire_lock
 
-	profile::install "$id" "$force"
+	profile::install "$id"
 }
 
 cmd::profile_remove() {
@@ -928,10 +923,7 @@ EOF
 	[[ -n $id ]] || log::die "dotctl profile remove: specify a profile id (see --help)"
 	[[ $EUID -ne 0 ]] || log::die "refuse to run as root"
 
-	apply::ensure_state_dir
-	LOCK_FILE="${STATE_DIR}/lock"
-	exec 200>"$LOCK_FILE"
-	flock -n 200 || log::die "another install/update is already running (lock: ${LOCK_FILE})"
+	cmd::_acquire_lock
 
 	profile::remove "$id"
 }

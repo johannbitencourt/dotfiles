@@ -7,13 +7,20 @@ detect::gpu() {
 	local -n out=$1
 	local vendors count
 
+	# Every stage here is a grep that legitimately finds nothing on hardware
+	# with no NVIDIA/AMD/Intel-named GPU (a VM's virtio/QXL/Cirrus display,
+	# an unusual vendor string, etc) — grep's own "no match" exit status 1
+	# would otherwise propagate through the pipe under pipefail and kill
+	# this bare assignment SILENTLY under set -e (no error text at all).
+	# The case statement below already has a real "0 vendors found" branch
+	# for exactly this — || true lets it actually get reached.
 	vendors=$(lspci -mm 2>/dev/null |
 		grep -iE '"(VGA compatible controller|3D controller|Display controller)"' |
 		grep -oiE '"(NVIDIA|Advanced Micro Devices|AMD|Intel)[^"]*"' |
 		grep -oiE 'NVIDIA|Advanced Micro Devices|AMD|Intel' |
 		tr '[:upper:]' '[:lower:]' |
 		sed 's/advanced micro devices/amd/' |
-		sort -u)
+		sort -u) || true
 	count=$(printf '%s\n' "$vendors" | sed '/^$/d' | wc -l)
 
 	case $count in

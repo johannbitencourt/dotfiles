@@ -69,25 +69,38 @@ json=$(reports)
 echo "PASS: profile::_record_install records the present/installed package attribution and preference defaults"
 rm -rf "${FAKE_HOME}/.local/state/dotfiles"
 
-# 2. Installing "core" (zero required capabilities): confirm is skipped
+# 2. Installing a zero-required-capability profile: confirm is skipped
 #    entirely (nothing to confirm), adapter_install_packages is never
 #    called, and an entry is still recorded — this is the one full
-#    success path reachable without a real tty.
-profile::install core </dev/null
+#    success path reachable without a real tty. profile::_load is shadowed
+#    for a synthetic "empty" id rather than shipping a whole zero-
+#    capability profile file just to exercise this edge.
+profile::_load() {
+	local id=$1
+	local -n _fixture_ref=$2
+	[[ $id == empty ]] || fail "unexpected profile::_load call in zero-capability test: ${id}"
+	_fixture_ref[PROFILE_ID]=empty
+	_fixture_ref[REQUIRED_CAPABILITIES]=
+}
+profile::install empty </dev/null
 [[ $captured_install == "<not called>" ]] || fail "adapter_install_packages was called for a zero-capability profile: ${captured_install}"
 json=$(reports)
-[[ -n $json ]] || fail "no profiles.json was written for core"
-echo "$json" | jq -e '.profiles.core' >/dev/null || fail "profiles.json has no 'core' entry: ${json}"
-[[ $(echo "$json" | jq -r '.profiles.core.packages.installed_by_profile | length') -eq 0 ]] ||
-	fail "expected zero installed_by_profile packages for core, got: ${json}"
+[[ -n $json ]] || fail "no profiles.json was written for a zero-capability profile"
+echo "$json" | jq -e '.profiles.empty' >/dev/null || fail "profiles.json has no 'empty' entry: ${json}"
+[[ $(echo "$json" | jq -r '.profiles.empty.packages.installed_by_profile | length') -eq 0 ]] ||
+	fail "expected zero installed_by_profile packages, got: ${json}"
 echo "PASS: installing a zero-capability profile skips confirm entirely and still records an entry"
 
 # 3. Installing an already-installed profile refuses rather than
 #    re-installing or double-recording.
-output=$(profile::install core </dev/null 2>&1) && rc=0 || rc=$?
+output=$(profile::install empty </dev/null 2>&1) && rc=0 || rc=$?
 [[ $rc -ne 0 ]] || fail "installing an already-installed profile unexpectedly succeeded"
 echo "$output" | grep -qi "already installed" || fail "unexpected failure message: ${output}"
 echo "PASS: installing an already-installed profile refuses"
+# Re-source to restore the REAL profile::_load — unset -f would just
+# delete the function entirely, not "revert" to profile.sh's original
+# definition (bash keeps no redefinition history).
+source "${DOTFILES_ROOT}/install/profile.sh"
 rm -rf "${FAKE_HOME}/.local/state/dotfiles"
 
 # 4. --dry-run (profile "dev", which has real missing packages on this
@@ -104,57 +117,9 @@ OPT_DRY_RUN=0
 OPT_NON_INTERACTIVE=1
 output=$(profile::install dev </dev/null 2>&1) && rc=0 || rc=$?
 [[ $rc -ne 0 ]] || fail "profile install under --non-interactive with missing packages unexpectedly succeeded"
-echo "$output" | grep -qi "refusing to proceed without confirmation" || fail "unexpected failure message: ${output}"
+echo "$output" | grep -qi "refusing without confirmation" || fail "unexpected failure message: ${output}"
 [[ -z $(reports) ]] || fail "a profiles.json entry was written despite refusing to install"
 echo "PASS: --non-interactive refuses to install rather than guessing when confirmation is needed"
 OPT_NON_INTERACTIVE=0
-
-# 6. Conflict gating: profile::install dies on a declared conflict with a
-#    currently-installed profile unless --force. Reachable end to end
-#    without a tty, since the conflict check runs before any confirm.
-#    profile::_load is shadowed to give "core" (0 required capabilities,
-#    so a forced install needs no confirm either) a synthetic
-#    CONFLICTING_PROFILES, without touching the real profiles/core.conf.
-rm -rf "${FAKE_HOME}/.local/state/dotfiles"
-mkdir -p "${FAKE_HOME}/.local/state/dotfiles"
-printf '{"profiles":{"beta":{}}}\n' >"${FAKE_HOME}/.local/state/dotfiles/profiles.json"
-profile::_load() {
-	local id=$1
-	local -n _fixture_ref=$2
-	[[ $id == core ]] || fail "unexpected profile::_load call in conflict-gating test: ${id}"
-	_fixture_ref[PROFILE_ID]=core
-	_fixture_ref[CONFLICTING_PROFILES]=beta
-}
-output=$(profile::install core 0 </dev/null 2>&1) && rc=0 || rc=$?
-[[ $rc -ne 0 ]] || fail "profile install with an unforced declared conflict unexpectedly succeeded"
-echo "$output" | grep -qi "declared conflict" || fail "expected a conflict failure message, got: ${output}"
-echo "$(reports)" | jq -e '.profiles.core' >/dev/null 2>&1 && fail "a 'core' profiles.json entry was written despite the unforced conflict"
-echo "PASS: profile install dies on a declared conflict with a currently-installed profile unless --force"
-
-profile::install core 1 </dev/null
-json=$(reports)
-echo "$json" | jq -e '.profiles.core' >/dev/null || fail "expected --force to let a conflicting zero-capability profile install, got: ${json}"
-echo "PASS: --force proceeds past a declared conflict"
-unset -f profile::_load
-rm -rf "${FAKE_HOME}/.local/state/dotfiles"
-
-# 7. Hardware-constraint gating: profile::install always dies on an unmet
-#    hardware constraint, no override flag — checked against this real
-#    host's actual detected GPU vendor (read-only detection, safe to run
-#    for real; this machine is confirmed nvidia earlier this session, so
-#    "amd" is unmet by construction).
-profile::_load() {
-	local id=$1
-	local -n _fixture_ref=$2
-	[[ $id == core ]] || fail "unexpected profile::_load call in hardware-constraint-gating test: ${id}"
-	_fixture_ref[PROFILE_ID]=core
-	_fixture_ref[HARDWARE_CONSTRAINTS]=GPU_VENDOR=amd
-}
-output=$(profile::install core </dev/null 2>&1) && rc=0 || rc=$?
-[[ $rc -ne 0 ]] || fail "profile install with an unmet hardware constraint unexpectedly succeeded"
-echo "$output" | grep -qi "unmet hardware constraint" || fail "expected an unmet-hardware-constraint failure message, got: ${output}"
-[[ -z $(reports) ]] || fail "a profiles.json entry was written despite the unmet hardware constraint"
-echo "PASS: profile install always dies on an unmet hardware constraint, no override"
-unset -f profile::_load
 
 echo "ALL PASS"

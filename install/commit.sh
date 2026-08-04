@@ -72,13 +72,7 @@ commit::find_drifted_paths() {
 # Fails hard under --non-interactive; otherwise prompts on the real TTY.
 commit::_confirm_overwrite() {
 	local target=$1 reason=$2
-	if [[ $OPT_NON_INTERACTIVE -eq 1 ]]; then
-		log::die "commit: ${target}: ${reason}; refusing to overwrite (--non-interactive)"
-	fi
-	log::warn "commit: ${target}: ${reason}"
-	local reply=""
-	read -r -p "  Back up and replace ${target}? [y/N] " reply </dev/tty
-	[[ $reply == [yY] ]] || log::die "commit: aborted by user at ${target}"
+	cli::confirm_or_die commit "${target}: ${reason}" "Back up and replace ${target}?"
 }
 
 # commit::_backup_file <target> <backup-dir>

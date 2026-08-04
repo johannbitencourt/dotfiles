@@ -126,6 +126,9 @@ if [[ $OPT_CONFIG_ONLY -eq 1 && $OPT_PACKAGES_ONLY -eq 1 ]]; then
 	log::die "--config-only and --packages-only are mutually exclusive"
 fi
 
+HOST_FILE_CREATED=0
+plan::_ensure_host_file "$OPT_HOST" && HOST_FILE_CREATED=1
+
 apply::acquire_lock_and_txn
 apply::detect_and_plan_host
 plan::resolve_capabilities
@@ -166,4 +169,24 @@ manifest::add_fragment "$(jq -nc \
 
 apply::commit_config
 
-log::info "install complete (core desktop; no first-run wizard/profiles/diagnostics yet)"
+if [[ $OPT_DRY_RUN -eq 1 ]]; then
+	log::info "install --dry-run complete; nothing was changed"
+else
+	log::info "install complete"
+	cat <<EOF
+
+Next steps:
+  1. Start a new login shell so ~/.local/bin is on PATH (or log out/in):
+       source ~/.bash_profile
+  2. From a real TTY (not inside a terminal emulator), start the session:
+       ~/.local/bin/hypr-session
+  3. Once inside, check everything: dotctl doctor
+EOF
+	if [[ $HOST_FILE_CREATED -eq 1 ]]; then
+		cat <<EOF
+A host profile was generated at hosts/${OPT_HOST}.conf since none existed —
+review PRIMARY_OUTPUT/KEYBOARD_LAYOUT there once you can check
+'hyprctl monitors' from inside the session, then commit it.
+EOF
+	fi
+fi
