@@ -55,6 +55,12 @@ source "${DOTFILES_ROOT}/install/session.sh"
 source "${DOTFILES_ROOT}/install/doctor.sh"
 # shellcheck source=install/uninstall.sh
 source "${DOTFILES_ROOT}/install/uninstall.sh"
+# shellcheck source=install/diagnose.sh
+source "${DOTFILES_ROOT}/install/diagnose.sh"
+# shellcheck source=install/recover.sh
+source "${DOTFILES_ROOT}/install/recover.sh"
+# shellcheck source=install/update.sh
+source "${DOTFILES_ROOT}/install/update.sh"
 # Note: no install/deploy.sh — dotctl never installs packages.
 
 declare -gA DETECTED=()
@@ -72,6 +78,8 @@ Commands:
   restore-config  restore files from a backup transaction
   uninstall       restore/remove managed files, stop services, write a report
   update config   fetch, fast-forward, and apply upstream changes
+  diagnose        write a redacted, portable local diagnostics bundle
+  recover         inspect current state and offer the matching fix
 
 Run 'dotctl <command> --help' for command-specific options.
 EOF
@@ -283,6 +291,14 @@ EOF
 	flock -n 200 || log::die "another install/update is already running (lock: ${LOCK_FILE})"
 
 	rollback::restore_transaction "$txn"
+
+	# If the restored transaction is the one currently marked active/
+	# incomplete, clear the marker — otherwise doctor's incomplete-
+	# transaction check would report FAIL forever after a legitimate fix
+	# (apply::commit_config already does this on its own rollback path).
+	if [[ -f "${STATE_DIR}/active-transaction" && "$(cat "${STATE_DIR}/active-transaction")" == "$txn" ]]; then
+		rm -f "${STATE_DIR}/active-transaction"
+	fi
 }
 
 cmd::uninstall() {
@@ -356,18 +372,23 @@ cmd::update() {
 		shift
 		cmd::update_config "$@"
 		;;
-	packages | all)
-		log::info "dotctl update ${scope}: not supported yet"
+	packages)
+		shift
+		cmd::update_packages "$@"
+		;;
+	all)
+		shift
+		cmd::update_all "$@"
 		;;
 	"")
 		cat <<'EOF'
 Usage: dotctl update <scope>
 
   config     fetch, fast-forward, and apply upstream changes
-  packages   not supported yet
-  all        not supported yet
+  packages   ask pacman for the native upgrade plan, then upgrade after approval
+  all        runs config, then packages, with a separate confirmation at each step
 
-A bare 'dotctl update' prints these scopes and does not mutate anything.
+A bare 'dotctl update' prints these scopes and does not mutate the system.
 EOF
 		;;
 	*)
@@ -476,6 +497,192 @@ EOF
 	log::info "update config: complete"
 }
 
+cmd::update_packages() {
+	cmd::_common_defaults
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+		--dry-run)
+			OPT_DRY_RUN=1
+			shift
+			;;
+		--non-interactive)
+			OPT_NON_INTERACTIVE=1
+			shift
+			;;
+		--verbose)
+			set -x
+			shift
+			;;
+		-h | --help)
+			cat <<'EOF'
+Usage: dotctl update packages [options]
+
+  --dry-run           show the upgrade plan, never upgrade
+  --non-interactive   never prompt; refuse to upgrade without one
+  --verbose           more log output
+
+Asks pacman for the native upgrade plan (this refreshes local package
+metadata even under --dry-run -- pacman has no side-effect-free preview),
+then upgrades only after an explicit [y/N] confirmation. Records the plan
+and pacman's output under ~/.local/share/dotfiles/update-packages-report-
+<timestamp>.json, then runs 'dotctl doctor'. Native packages are NOT
+automatically reversible: a config rollback never reverts packages.
+EOF
+			exit 0
+			;;
+		*)
+			log::die "dotctl update packages: unknown option: $1 (see --help)"
+			;;
+		esac
+	done
+
+	[[ $EUID -ne 0 ]] || log::die "refuse to run as root"
+
+	apply::ensure_state_dir
+	LOCK_FILE="${STATE_DIR}/lock"
+	exec 200>"$LOCK_FILE"
+	flock -n 200 || log::die "another install/update is already running (lock: ${LOCK_FILE})"
+
+	update::packages_run
+}
+
+cmd::update_all() {
+	cmd::_common_defaults
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+		--host)
+			OPT_HOST=$2
+			shift 2
+			;;
+		--preference)
+			[[ ${2:-} == *=* ]] || log::die "--preference expects KEY=VALUE, got: ${2:-}"
+			CLI_PREFERENCES[${2%%=*}]=${2#*=}
+			shift 2
+			;;
+		--dry-run)
+			OPT_DRY_RUN=1
+			shift
+			;;
+		--non-interactive)
+			OPT_NON_INTERACTIVE=1
+			shift
+			;;
+		--verbose)
+			set -x
+			shift
+			;;
+		-h | --help)
+			cat <<'EOF'
+Usage: dotctl update all [options]
+
+  --host <name>            host profile to use (default: this machine's hostname)
+  --preference KEY=VALUE   override a resolved value (repeatable)
+  --dry-run                preview both steps, mutate nothing
+  --non-interactive        never prompt (config proceeds; packages refuses to upgrade)
+  --verbose                more log output
+
+Runs 'dotctl update config' then 'dotctl update packages', each with its own
+independent confirmation. A config failure stops before packages ever runs.
+Packages are never reverted by a config rollback, in either direction.
+EOF
+			exit 0
+			;;
+		*)
+			log::die "dotctl update all: unknown option: $1 (see --help)"
+			;;
+		esac
+	done
+
+	[[ $EUID -ne 0 ]] || log::die "refuse to run as root"
+
+	local -a config_args=(--host "$OPT_HOST")
+	local pref
+	for pref in "${!CLI_PREFERENCES[@]}"; do
+		config_args+=(--preference "${pref}=${CLI_PREFERENCES[$pref]}")
+	done
+	[[ $OPT_DRY_RUN -eq 1 ]] && config_args+=(--dry-run)
+	[[ $OPT_NON_INTERACTIVE -eq 1 ]] && config_args+=(--non-interactive)
+
+	log::info "update all: [1/2] config"
+	cmd::update_config "${config_args[@]}"
+
+	local -a pkg_args=()
+	[[ $OPT_DRY_RUN -eq 1 ]] && pkg_args+=(--dry-run)
+	[[ $OPT_NON_INTERACTIVE -eq 1 ]] && pkg_args+=(--non-interactive)
+
+	log::info "update all: [2/2] packages"
+	cmd::update_packages "${pkg_args[@]}"
+
+	log::info "update all: complete"
+}
+
+cmd::diagnose() {
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+		--verbose)
+			set -x
+			shift
+			;;
+		-h | --help)
+			cat <<'EOF'
+Usage: dotctl diagnose [options]
+
+  --verbose   more log output
+
+Writes a redacted, portable local diagnostics bundle (doctor output, project
+state, this host's generated Hyprland config, git state). Never uploaded
+anywhere — purely local, for you to inspect or share yourself.
+EOF
+			exit 0
+			;;
+		*)
+			log::die "dotctl diagnose: unknown option: $1 (see --help)"
+			;;
+		esac
+	done
+
+	diagnose::run
+}
+
+cmd::recover() {
+	cmd::_common_defaults
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+		--non-interactive)
+			OPT_NON_INTERACTIVE=1
+			shift
+			;;
+		--verbose)
+			set -x
+			shift
+			;;
+		-h | --help)
+			cat <<'EOF'
+Usage: dotctl recover [options]
+
+  --non-interactive   never prompt; report findings and defer instead of acting
+  --verbose           more log output
+
+Inspects current transaction/config state and offers the one fix that
+actually applies right now (never more than one at a time). Exit codes: 0
+nothing found or fixed, 2 a finding was reported but not acted on, 1 misuse
+or crash.
+EOF
+			exit 0
+			;;
+		*)
+			log::die "dotctl recover: unknown option: $1 (see --help)"
+			;;
+		esac
+	done
+
+	[[ $EUID -ne 0 ]] || log::die "refuse to run as root"
+
+	local rc=0
+	recover::run || rc=$?
+	exit "$rc"
+}
+
 [[ $# -ge 1 ]] || {
 	usage
 	exit 1
@@ -490,6 +697,8 @@ validate) cmd::validate "$@" ;;
 doctor) cmd::doctor "$@" ;;
 restore-config) cmd::restore_config "$@" ;;
 uninstall) cmd::uninstall "$@" ;;
+diagnose) cmd::diagnose "$@" ;;
+recover) cmd::recover "$@" ;;
 update) cmd::update "$@" ;;
 -h | --help)
 	usage

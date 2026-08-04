@@ -58,4 +58,31 @@ if HOME="$FAKE_HOME" "${DOTFILES_ROOT}/scripts/dotctl" restore-config 2>/dev/nul
 fi
 echo "PASS: no flags given is rejected"
 
+# 5. --last on a host with zero backup transactions must fail LOUDLY (a
+#    regression test for a real bug: `find <nonexistent-dir> | ...` failing
+#    as a pipeline under pipefail used to kill this silently, exit 1 with
+#    no error text at all).
+EMPTY_HOME=$(mktemp -d)
+output=$(HOME="$EMPTY_HOME" "${DOTFILES_ROOT}/scripts/dotctl" restore-config --last 2>&1) && rc=0 || rc=$?
+rm -rf "$EMPTY_HOME"
+[[ $rc -ne 0 ]] || fail "--last on a host with no backups unexpectedly succeeded"
+[[ -n $output ]] || fail "--last on a host with no backups failed silently (no error text)"
+echo "$output" | grep -qi "no backup transactions found" || fail "unexpected failure message: ${output}"
+echo "PASS: --last on a host with zero backups fails loudly, not silently"
+
+# 6. Restoring a transaction clears a MATCHING active-transaction marker,
+#    but leaves an unrelated one alone.
+printf '%s\n' "20260601T000000Z-2" >"${STATE_DIR}/active-transaction"
+HOME="$FAKE_HOME" "${DOTFILES_ROOT}/scripts/dotctl" restore-config --transaction 20260601T000000Z-2 >/dev/null 2>&1 ||
+	fail "restore-config --transaction failed while testing marker cleanup"
+[[ ! -f "${STATE_DIR}/active-transaction" ]] || fail "restoring the marked transaction did not clear active-transaction"
+echo "PASS: restoring the marked transaction clears active-transaction"
+
+printf '%s\n' "some-other-unrelated-txn" >"${STATE_DIR}/active-transaction"
+HOME="$FAKE_HOME" "${DOTFILES_ROOT}/scripts/dotctl" restore-config --transaction 20260101T000000Z-1 >/dev/null 2>&1 ||
+	fail "restore-config --transaction failed while testing unrelated-marker preservation"
+[[ $(cat "${STATE_DIR}/active-transaction") == "some-other-unrelated-txn" ]] ||
+	fail "restoring an unrelated transaction incorrectly cleared a different active-transaction marker"
+echo "PASS: restoring an unrelated transaction leaves a different active-transaction marker alone"
+
 echo "ALL PASS"

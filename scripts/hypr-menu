@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if [[ ${1:-} == -h || ${1:-} == --help ]]; then
+	cat <<'EOF'
+Usage: hypr-menu
+
+Opens a Fuzzel picker (Session/Maintenance/Help — HLD 19's system menu),
+bound to Super+Alt+Space. No independent privileged logic: every entry is a
+direct passthrough to an existing command. Anything whose output matters,
+or that needs a real /dev/tty for confirmation, opens Foot.
+EOF
+	exit 0
+fi
+
+_hypr_menu_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+if [[ -f "${_hypr_menu_dir}/../install/apply.sh" ]]; then
+	DOTFILES_ROOT=$(cd -- "${_hypr_menu_dir}/.." &>/dev/null && pwd)
+else
+	DOTFILES_ROOT="@@DOTFILES_ROOT_ABS@@"
+fi
+readonly DOTFILES_ROOT
+unset _hypr_menu_dir
+
+source "${DOTFILES_ROOT}/scripts/lib/log.sh"
+source "${DOTFILES_ROOT}/applications/waybar/reload.sh"
+source "${DOTFILES_ROOT}/applications/mako/reload.sh"
+source "${DOTFILES_ROOT}/install/menu.sh"
+
+selection=$(menu::items | fuzzel --dmenu --prompt 'System> ') || exit 0
+[[ -n $selection ]] || exit 0
+menu::dispatch "$selection"

@@ -91,12 +91,8 @@ doctor::_check_managed_drift() {
 		return
 	fi
 
-	local path _sum
 	local -a drifted=()
-	while IFS=$'\t' read -r path _sum; do
-		[[ -z $path ]] && continue
-		[[ $(commit::classify "$path") == managed-modified ]] && drifted+=("$path")
-	done <"$ledger"
+	mapfile -t drifted < <(commit::find_drifted_paths)
 
 	if [[ ${#drifted[@]} -eq 0 ]]; then
 		doctor::_record managed-drift PASS "no drift detected"

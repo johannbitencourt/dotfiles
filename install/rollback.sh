@@ -52,6 +52,12 @@ rollback::restore_transaction() {
 # `date -u +%Y%m%dT%H%M%SZ-$$`, so lexicographic sort is chronological sort
 # — no mtime comparison needed.
 rollback::latest_transaction() {
+	# A nonexistent backups dir makes `find` exit nonzero even though `tail`
+	# still succeeds — under pipefail the pipeline's own status is that
+	# failure, which would silently kill the caller's `txn=$(...)`
+	# assignment under set -e. Guard explicitly rather than relying on the
+	# pipeline to degrade gracefully.
+	[[ -d "${STATE_DIR}/backups" ]] || return 0
 	find "${STATE_DIR}/backups" -maxdepth 1 -mindepth 1 -type d -printf '%f\n' 2>/dev/null | sort | tail -n1
 }
 

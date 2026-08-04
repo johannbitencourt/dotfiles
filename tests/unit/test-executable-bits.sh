@@ -10,11 +10,11 @@ fail() {
 }
 
 # 1. Entrypoints must be executable.
-required=(install.sh uninstall.sh scripts/hypr-session scripts/dotctl)
+required=(install.sh uninstall.sh scripts/hypr-session scripts/dotctl scripts/hypr-menu)
 for f in "${required[@]}"; do
 	[[ -x $f ]] || fail "${f} is not executable"
 done
-echo "PASS: entrypoints (install.sh, uninstall.sh, hypr-session, dotctl) are executable"
+echo "PASS: entrypoints (install.sh, uninstall.sh, hypr-session, dotctl, hypr-menu) are executable"
 
 # 2. Data/template files should never carry the executable bit — a stray
 #    chmod +x on a .conf/.tmpl is almost always a mistake, not intent.

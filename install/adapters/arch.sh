@@ -14,6 +14,8 @@
 #   adapter_install_packages <package>...
 #   adapter_remove_packages <package>...
 #   adapter_candidate_version <package>
+#   adapter_upgrade_plan
+#   adapter_upgrade_system
 #   adapter_enable_system_service <unit>
 #   adapter_disable_system_service <unit>
 
@@ -92,6 +94,23 @@ adapter_validate_version() {
 	2) log::die "adapter_validate_version: could not query candidate hyprland version" ;;
 	*) log::die "hyprland candidate ${ADAPTER_CANDIDATE_VERSION} is older than required minimum ${ADAPTER_MIN_VERSION}" ;;
 	esac
+}
+
+# adapter_upgrade_plan
+# Refreshes package metadata and prints the pending upgrade. pacman has no
+# side-effect-free preview: --print still requires root and still writes
+# the local sync-db cache (confirmed empirically: `pacman -Syu --print` as
+# non-root refuses with "you cannot perform this operation unless you are
+# root"). Deliberately not split into a separate refresh + `pacman -Qu` —
+# that reintroduces the exact stale-db/partial-upgrade risk -Syu together
+# avoids.
+adapter_upgrade_plan() {
+	sudo pacman -Syu --print --noconfirm
+}
+
+# adapter_upgrade_system — the real system-wide upgrade.
+adapter_upgrade_system() {
+	sudo pacman -Syu --noconfirm
 }
 
 adapter_enable_system_service() {

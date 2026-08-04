@@ -51,6 +51,23 @@ commit::classify() {
 	fi
 }
 
+# commit::find_drifted_paths — prints one path per line for every managed
+# path whose live content no longer matches what this project last wrote
+# (commit::classify == managed-modified). Empty output if the ledger is
+# absent or empty. Shared by doctor's managed-drift check and
+# dotctl recover's detection — a real second caller wanting the exact same
+# list, not a speculative extraction.
+commit::find_drifted_paths() {
+	local ledger="${STATE_DIR}/managed-checksums.tsv"
+	[[ -s $ledger ]] || return 0
+
+	local path _sum
+	while IFS=$'\t' read -r path _sum; do
+		[[ -z $path ]] && continue
+		[[ $(commit::classify "$path") == managed-modified ]] && printf '%s\n' "$path"
+	done <"$ledger"
+}
+
 # commit::_confirm_overwrite <target> <reason>
 # Fails hard under --non-interactive; otherwise prompts on the real TTY.
 commit::_confirm_overwrite() {
