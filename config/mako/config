@@ -1,0 +1,8 @@
+background-color=#1a1b26
+text-color=#c0caf5
+border-color=#7aa2f7
+border-size=2
+border-radius=6
+padding=10
+default-timeout=5000
+layer=overlay
