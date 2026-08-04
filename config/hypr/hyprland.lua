@@ -11,11 +11,21 @@ hl.env("HYPRCURSOR_SIZE", "24")
 
 hl.config({
     input      = { kb_layout = "us", follow_mouse = 1, numlock_by_default = true },
-    general    = { gaps_in = 4, gaps_out = 8, border_size = 2, layout = "dwindle" },
+    general    = {
+        gaps_in = 4, gaps_out = 8, border_size = 2, layout = "dwindle",
+        col = {
+            -- Tokyo Night, same palette as waybar/foot/fuzzel/mako.
+            active_border   = { colors = { "rgba(7aa2f7ee)", "rgba(bb9af7ee)" }, angle = 45 },
+            inactive_border = "rgba(414868aa)",
+        },
+    },
     dwindle    = { preserve_split = true },
-    -- Deliberately low-overhead: no blur, no shadows, no animations.
-    decoration = { blur = { enabled = false }, shadow = { enabled = false } },
-    animations = { enabled = false },
+    -- Rounding and animations are cheap; blur and shadows are the expensive
+    -- pair, and this is a laptop on a discrete GPU. Defaults are used for the
+    -- animation curves — upstream's 17 hl.curve/hl.animation lines only
+    -- restate them.
+    decoration = { rounding = 8, blur = { enabled = false }, shadow = { enabled = false } },
+    animations = { enabled = true },
     misc       = { disable_hyprland_logo = true, force_default_wallpaper = 0 },
 })
 
