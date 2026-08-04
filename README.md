@@ -31,10 +31,15 @@ On a fresh machine, this is the whole thing:
 ```
 
 It reads `packages.txt`, runs `sudo pacman -S --needed` on the list (so it
-prompts once for your password and skips anything already present), then
-symlinks each directory under `config/` to the matching path in `~/.config`,
-moving any existing real directory aside to `<name>.bak` first. Every package
-is in the official repos — no AUR helper needed.
+prompts once for your password and skips anything already present), enables
+NetworkManager and bluetooth, then symlinks each directory under `config/` to
+the matching path in `~/.config`, moving any existing real directory aside to
+`<name>.bak` first. Every package is in the official repos — no AUR helper
+needed.
+
+No file manager, GTK/Qt theme configurator, logout menu, or OSD daemon is
+included. Each is one line in `packages.txt` if you find you want it; none of
+them is needed for the desktop to work.
 
 Pass `--no-packages` to only do the symlinking. Because the links point at the
 repo, editing a file here takes effect directly. To uninstall, delete the
@@ -90,6 +95,8 @@ before changing it.
 | `V` | toggle floating |
 | `SHIFT + E` | exit Hyprland |
 | `SHIFT + S` | screenshot region to clipboard |
+| `SHIFT + V` | clipboard history (cliphist via fuzzel) |
+| `SHIFT + N` | night light on/off (hyprsunset, 4000K) |
 | `B` | status notification: time, battery, network |
 | arrows | move focus |
 | `SHIFT` + arrows | move window |

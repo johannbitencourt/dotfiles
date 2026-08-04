@@ -33,6 +33,8 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("swaybg -c '#1a1b26'")
     -- GUI authentication prompts (e.g. mounting a disk, editing a system file)
     hl.exec_cmd("/usr/lib/hyprpolkitagent/hyprpolkitagent")
+    -- Clipboard history. Only the watcher runs; SUPER+SHIFT+V picks from it.
+    hl.exec_cmd("wl-paste --watch cliphist store")
 end)
 
 local mod = "SUPER"
@@ -61,12 +63,24 @@ hl.bind(mod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 -- Screenshot: region to clipboard.
 hl.bind(mod .. " + SHIFT + S", hl.dsp.exec_cmd("grim -g \"$(slurp)\" - | wl-copy"))
 
+-- Clipboard history through the launcher we already have.
+hl.bind(mod .. " + SHIFT + V", hl.dsp.exec_cmd(
+    "cliphist list | fuzzel --dmenu | cliphist decode | wl-copy"))
+
+-- Night light toggle. hyprsunset 0.4.0 has no config file and no schedule,
+-- so pkill-or-start is the whole state machine.
+hl.bind(mod .. " + SHIFT + N", hl.dsp.exec_cmd("pkill hyprsunset || hyprsunset -t 4000"))
+
 -- Laptop function keys. `locked` lets them work while hyprlock is up.
 hl.bind("XF86AudioRaiseVolume",  hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
 hl.bind("XF86AudioLowerVolume",  hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),      { locked = true, repeating = true })
 hl.bind("XF86AudioMute",         hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"),     { locked = true })
 hl.bind("XF86MonBrightnessUp",   hl.dsp.exec_cmd("brightnessctl -e4 -n2 set 5%+"),                  { locked = true, repeating = true })
 hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl -e4 -n2 set 5%-"),                  { locked = true, repeating = true })
+hl.bind("XF86AudioNext",         hl.dsp.exec_cmd("playerctl next"),                                 { locked = true })
+hl.bind("XF86AudioPrev",         hl.dsp.exec_cmd("playerctl previous"),                             { locked = true })
+hl.bind("XF86AudioPlay",         hl.dsp.exec_cmd("playerctl play-pause"),                           { locked = true })
+hl.bind("XF86AudioPause",        hl.dsp.exec_cmd("playerctl play-pause"),                           { locked = true })
 
 -- On-demand status, so the bar isn't the only way to check the battery.
 -- exec_cmd runs through a shell, so $(...) works. BAT* rather than BAT0:

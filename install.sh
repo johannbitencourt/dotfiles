@@ -14,6 +14,8 @@ dest="${XDG_CONFIG_HOME:-$HOME/.config}"
 if [[ ${1:-} != --no-packages ]]; then
 	mapfile -t pkgs < <(grep -vE '^[[:space:]]*(#|$)' -- "$repo/packages.txt")
 	sudo pacman -S --needed -- "${pkgs[@]}"
+	# Installed-but-not-enabled is the classic way to end up with no wifi.
+	sudo systemctl enable --now NetworkManager.service bluetooth.service
 fi
 
 mkdir -p -- "$dest"

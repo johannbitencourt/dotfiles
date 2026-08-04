@@ -30,6 +30,27 @@ libnotify
 # Qt apps run native Wayland instead of falling back to XWayland
 qt6-wayland
 
+# night light. 0.4.0 has no config file — it's driven entirely by CLI flags,
+# so it's a toggle bind rather than a scheduled daemon.
+hyprsunset
+
+# clipboard history, picked with fuzzel
+cliphist
+
+# audio beyond the volume keys: routing GUI and media-key control
+pavucontrol
+playerctl
+
+# network and bluetooth. Both are daemons — install.sh enables them, since
+# installing NetworkManager without starting it leaves you with no wifi.
+# impala and bluetui are keyboard-driven TUIs (bluetui is the in-repo
+# equivalent of bluetuith, which is AUR-only).
+networkmanager
+impala
+bluez
+bluez-utils
+bluetui
+
 # font referenced by foot.ini and fuzzel.ini
 ttf-jetbrains-mono-nerd
 
