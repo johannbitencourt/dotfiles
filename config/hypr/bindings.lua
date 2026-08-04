@@ -32,6 +32,16 @@ hl.bind(mod .. " + SHIFT + S", hl.dsp.exec_cmd("grim -g \"$(slurp)\" - | wl-copy
 hl.bind(mod .. " + SHIFT + V", hl.dsp.exec_cmd(
     "cliphist list | fuzzel --dmenu | cliphist decode | wl-copy"))
 
+-- Theme picker. Flips themes/current, then nudges the two daemons that can
+-- reload in place; foot, fuzzel and hyprlock read the theme on next launch.
+-- ponytail: Hyprland's own border colours aren't themed — they're 2 literals
+-- in hyprland.lua, and Lua can't `require` a sibling of the hypr config dir.
+hl.bind(mod .. " + SHIFT + T", hl.dsp.exec_cmd(
+    -- -type d excludes `current` itself, which is a symlink.
+    "cd ~/.config/themes && t=$(find . -maxdepth 1 -type d ! -name . -printf '%f\\n' "
+    .. "| sort | fuzzel --dmenu) && ln -sfn \"$t\" current "
+    .. "&& makoctl reload; pkill -SIGUSR2 waybar"))
+
 -- Night light toggle. hyprsunset 0.4.0 has no config file and no schedule,
 -- so pkill-or-start is the whole state machine.
 hl.bind(mod .. " + SHIFT + N", hl.dsp.exec_cmd("pkill hyprsunset || hyprsunset -t 4000"))
