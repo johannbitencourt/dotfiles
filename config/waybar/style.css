@@ -7,6 +7,9 @@
 
 #workspaces button { padding: 0 8px; }
 
+/* Not themed: critical is critical whatever the palette. */
+#battery.critical { color: #f7768e; }
+
 #clock,
 #network,
 #battery,

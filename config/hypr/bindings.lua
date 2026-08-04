@@ -1,6 +1,6 @@
 local mod = "SUPER"
 
-hl.bind(mod .. " + Return",    hl.dsp.exec_cmd("foot"))
+hl.bind(mod .. " + Return",    hl.dsp.exec_cmd("footclient"))
 hl.bind(mod .. " + Space",     hl.dsp.exec_cmd("fuzzel"))
 hl.bind(mod .. " + L",         hl.dsp.exec_cmd("hyprlock"))
 hl.bind(mod .. " + W",         hl.dsp.window.close())
@@ -25,8 +25,14 @@ end
 hl.bind(mod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
 hl.bind(mod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
--- Screenshot: region to clipboard.
+-- Screenshot: region to clipboard, whole screen to a file.
 hl.bind(mod .. " + SHIFT + S", hl.dsp.exec_cmd("grim -g \"$(slurp)\" - | wl-copy"))
+hl.bind("Print", hl.dsp.exec_cmd(
+    "mkdir -p ~/Pictures && grim ~/Pictures/$(date +%Y%m%d-%H%M%S).png"))
+
+-- Scratchpad: a window parked off-layout that toggles back into view.
+hl.bind(mod .. " + S",         hl.dsp.workspace.toggle_special("magic"))
+hl.bind(mod .. " + SHIFT + M", hl.dsp.window.move({ workspace = "special:magic" }))
 
 -- Clipboard history through the launcher we already have.
 hl.bind(mod .. " + SHIFT + V", hl.dsp.exec_cmd(

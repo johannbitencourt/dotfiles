@@ -20,6 +20,7 @@
         "tooltip-format": "{ifname}: {ipaddr}/{cidrv4}"
     },
     "battery": {
+        "states": { "critical": 15 },
         "format": "{icon} {capacity}%",
         "format-icons": ["", "", "", "", ""],
         "format-charging": " {capacity}%"

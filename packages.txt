@@ -51,8 +51,10 @@ bluez
 bluez-utils
 bluetui
 
-# font referenced by foot.ini and fuzzel.ini
+# font referenced by foot.ini and fuzzel.ini, plus emoji so notifications and
+# chat apps don't render tofu
 ttf-jetbrains-mono-nerd
+noto-fonts-emoji
 
 # clipboard, screen sharing / file pickers, GUI authentication prompts
 wl-clipboard

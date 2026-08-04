@@ -36,6 +36,9 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("dbus-update-activation-environment --systemd "
         .. "WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE HYPRLAND_INSTANCE_SIGNATURE")
     hl.exec_cmd("mako")
+    -- ponytail: terminals open instantly via footclient, but they all die
+    -- with this one server. Drop back to plain `foot` if that ever bites.
+    hl.exec_cmd("foot --server")
     hl.exec_cmd("waybar")
     hl.exec_cmd("hypridle")
     -- Solid colour rather than an image, so the repo carries no binary asset.
@@ -46,6 +49,24 @@ hl.on("hyprland.start", function()
     -- Clipboard history. Only the watcher runs; SUPER+SHIFT+V picks from it.
     hl.exec_cmd("wl-paste --watch cliphist store")
 end)
+
+-- Both rules are upstream's, from /usr/share/hypr/hyprland.lua.
+hl.window_rule({
+    -- Apps asking to maximise themselves fight the tiler. Ignore them.
+    name           = "suppress-maximize-events",
+    match          = { class = ".*" },
+    suppress_event = "maximize",
+})
+
+hl.window_rule({
+    -- Fixes drag-and-drop breaking under XWayland.
+    name  = "fix-xwayland-drags",
+    match = {
+        class = "^$", title = "^$", xwayland = true,
+        float = true, fullscreen = false, pin = false,
+    },
+    no_focus = true,
+})
 
 -- Separate require() scope: an error in the binds cannot stop this file.
 require("bindings")
