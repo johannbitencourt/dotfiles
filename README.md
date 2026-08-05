@@ -31,13 +31,14 @@ makes the desktop portal's screenshot and screencast path work for other apps.
 ## Prerequisites
 
 `packages.txt` covers the desktop, but it can't bootstrap the things needed to
-run `install.sh` in the first place. The `base` metapackage has no `sudo` and
-no `git`, and `linux-firmware` is only an *optional* dep of the kernel — without
-it the wifi and bluetooth radios never appear, which makes `impala` and
-`bluetui` useless. On a minimal Arch install, first:
+run `install.sh` in the first place. The `base` metapackage has no `sudo`, no
+`git`, no editor, and no pager — so `man` doesn't work and `pacman -Si` can't
+page. `linux-firmware` is only an *optional* dep of the kernel, and without it
+the wifi and bluetooth radios never appear, which makes `impala` and `bluetui`
+useless. On a minimal Arch install, first:
 
 ```bash
-pacman -S --needed sudo git linux-firmware
+pacman -S --needed sudo git less nano man-db man-pages linux-firmware
 ```
 
 **Graphics drivers are not in `packages.txt`** — they're host hardware, not
@@ -56,6 +57,31 @@ for your running kernel installed *first* — `linux-headers`, or
 package is compiled against `extra/linux` and will not load on a CachyOS
 kernel. CachyOS also ships prebuilt `linux-cachyos-nvidia-open`, which skips
 DKMS entirely and is less to maintain.
+
+### On the CachyOS kernel
+
+Nothing in `packages.txt` is kernel-coupled — it's all userspace, so the desktop
+is identical on `linux`, `linux-zen`, or `linux-cachyos`. The kernel, its
+headers, the bootloader, and the CachyOS repos themselves are install-time
+concerns this repo deliberately stays out of. Note that `linux-cachyos`,
+`cachyos-settings`, `chwd`, and `uksmd` are **not** reachable from Arch's repos —
+they need `cachyos-keyring` and the CachyOS repo stanza in `pacman.conf` first
+(or an AUR build, which is a long compile).
+
+Two optional extras that pair well with it, both in Arch's own `extra`:
+
+```bash
+sudo pacman -S --needed scx-scheds ananicy-cpp
+```
+
+`scx-scheds` is the sched_ext scheduler set — `scx_lavd` is the one tuned for
+interactive latency. It needs `CONFIG_SCHED_CLASS_EXT`, which CachyOS enables and
+stock Arch has had since 6.12; check with `ls /sys/kernel/sched_ext`.
+`ananicy-cpp` applies nice/ioclass rules per process.
+
+One thing CachyOS gives you for free that plain Arch does not: zram, via
+`cachyos-settings`. On stock Arch it's the `zram-generator` package plus a short
+`/etc/systemd/zram-generator.conf`. Check with `zramctl`.
 
 ## Install
 

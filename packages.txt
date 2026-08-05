@@ -56,9 +56,15 @@ bluez-utils
 bluetui
 
 # font referenced by foot.ini and fuzzel.ini, plus emoji so notifications and
-# chat apps don't render tofu
+# chat apps don't render tofu. noto-fonts is the proportional face: the nerd
+# font is mono-only, so without it GTK apps and waybar tooltips have nothing
+# to fall back to on a bare install.
 ttf-jetbrains-mono-nerd
+noto-fonts
 noto-fonts-emoji
+
+# creates ~/Pictures and friends, where the Print screenshot bind writes
+xdg-user-dirs
 
 # clipboard, screen sharing / file pickers, GUI authentication prompts
 wl-clipboard
@@ -66,7 +72,9 @@ xdg-desktop-portal-hyprland
 xdg-desktop-portal-gtk
 hyprpolkitagent
 
-# audio — nothing here configures it, but a desktop without sound is no fun
+# audio — nothing here configures it, but a desktop without sound is no fun.
+# pipewire-alsa gives ALSA-only apps a route in; without it they find no device.
 pipewire
 pipewire-pulse
+pipewire-alsa
 wireplumber
