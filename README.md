@@ -5,23 +5,28 @@ A small Hyprland desktop. The Hyprland config is Lua
 Hyprland 0.55 and is slated for removal around 0.57.
 
 ```
-config/hypr/hyprland.lua    compositor: monitors, input, look, autostart, binds
+config/hypr/hyprland.lua    compositor: monitors, input, look, autostart, rules
+config/hypr/bindings.lua    every keybind, require()d from hyprland.lua
 config/hypr/hyprlock.conf   lock screen (hyprlock is separate, still hyprlang)
 config/hypr/hypridle.conf   lock at 5 min, screen off at 6 min
 config/waybar/config.jsonc  bar: workspaces, clock, network, battery, volume
 config/waybar/style.css     bar styling
 config/foot/foot.ini        terminal
 config/fuzzel/fuzzel.ini    launcher
-config/mako/config          notifications
+config/mako/config          notifications (symlink into the current theme)
+config/themes/current       symlink naming the active theme — see Themes below
+config/themes/tokyo-*/      one colour file per app, per theme
 etc/systemd/network/*       DHCP for wifi and ethernet (copied into /etc)
 packages.txt                what to install
 install.sh                  installs packages, symlinks config/* into ~/.config/*
 ```
 
-Started from `hyprland.lua` with no config of their own: `swaybg` (solid
-colour background), `hyprpolkitagent` (GUI auth prompts), and `grim`/`slurp`
-(screenshots — also what makes the desktop portal's screenshot and screencast
-path work for other apps).
+Started by `hyprland.lua`'s `hyprland.start` handler: `mako` (notifications),
+`foot --server`, `waybar`, `hypridle`, `swaybg` (solid colour, so the repo
+carries no image asset), `hyprpolkitagent` (GUI auth prompts), and a
+`wl-paste --watch cliphist store` clipboard watcher. `grim` and `slurp` have no
+config and no daemon — they run per screenshot, and installing them is also what
+makes the desktop portal's screenshot and screencast path work for other apps.
 
 ## Prerequisites
 
@@ -135,8 +140,13 @@ before changing it.
 | `F` | fullscreen |
 | `V` | toggle floating |
 | `SHIFT + E` | exit Hyprland |
+| `SHIFT + Q` | power menu (suspend / reboot / poweroff, via fuzzel) |
+| `S` | show/hide the scratchpad workspace |
+| `SHIFT + M` | move window to the scratchpad |
 | `SHIFT + S` | screenshot region to clipboard |
+| `Print` | screenshot whole screen to `~/Pictures` |
 | `SHIFT + V` | clipboard history (cliphist via fuzzel) |
+| `SHIFT + T` | theme picker |
 | `SHIFT + N` | night light on/off (hyprsunset, 4000K) |
 | `B` | status notification: time, battery, network |
 | arrows | move focus |
@@ -145,15 +155,43 @@ before changing it.
 | `SHIFT` + `1`–`5` | move window to workspace |
 | drag / right-drag | move / resize window |
 
-Volume and brightness function keys are bound too, and keep working while the
-lock screen is up.
+Volume, brightness, and media function keys are bound too, and the volume and
+brightness ones keep working while the lock screen is up.
+
+## Themes
+
+`config/themes/current` is a symlink naming the active theme, and flipping it is
+the entire mechanism — there is no generator and nothing is templated. Each app
+pulls its colours out of `current/` through its own native include:
+
+| App | How |
+| --- | --- |
+| foot, fuzzel | `include=~/.config/themes/current/…` |
+| hyprlock | `source = …`, then `$bg` / `$fg` / `$accent` / `$field` |
+| waybar | `@import url("../themes/current/waybar.css")` |
+| mako | `config/mako/config` *is* a symlink — mako has no include |
+
+`SUPER+SHIFT+T` lists the theme directories in fuzzel, repoints `current`, then
+reloads mako and waybar in place. foot, fuzzel, and hyprlock pick the new colours
+up the next time they launch.
+
+To add a theme, copy `tokyo-night/` to a new directory and edit the five files;
+it shows up in the picker with no other change. Two things are deliberately not
+themed: Hyprland's own border colours (two literals in `hyprland.lua`, because
+Lua can't `require` across config directories) and waybar's critical-battery red.
 
 ## Changing things
 
-`config/hypr/hyprland.lua` is the whole compositor config; edit it directly.
+Two files: `config/hypr/hyprland.lua` for the compositor,
+`config/hypr/bindings.lua` for the keys. They're separate `require()` scopes, so
+a syntax error in your binds can't take the whole compositor config down with it.
+
 The full Lua API is stubbed at `/usr/share/hypr/stubs/hl.meta.lua`, and
 upstream's annotated example config at `/usr/share/hypr/hyprland.lua` is worth
-reading — it has ready-made blocks for media keys, gestures, and window rules.
+reading — it has ready-made blocks for gestures, window rules, and per-device
+input settings.
 
-To add a bar, a wallpaper, or an idle daemon, write its config under `config/`
-and add one `hl.exec_cmd("…")` line to the `hyprland.start` handler.
+To add another autostarted program, write its config under `config/` and add one
+`hl.exec_cmd("…")` line to the `hyprland.start` handler. Check it before you
+restart into it — `luac -p config/hypr/*.lua` catches the syntax errors that
+would otherwise greet you as a black screen.
