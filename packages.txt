@@ -42,10 +42,14 @@ pavucontrol
 playerctl
 
 # network and bluetooth. Both are daemons — install.sh enables them, since
-# installing NetworkManager without starting it leaves you with no wifi.
+# installing them without starting them leaves you with no wifi.
+# iwd rather than NetworkManager: impala is an iwd TUI (`Depends On: iwd`), and
+# the two are competing wifi backends — running both makes them fight over the
+# radio. iwd does wifi; addresses and DNS come from systemd-networkd/resolved,
+# which are already in `base` via systemd.
 # impala and bluetui are keyboard-driven TUIs (bluetui is the in-repo
 # equivalent of bluetuith, which is AUR-only).
-networkmanager
+iwd
 impala
 bluez
 bluez-utils

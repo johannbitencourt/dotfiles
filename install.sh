@@ -14,8 +14,17 @@ dest="${XDG_CONFIG_HOME:-$HOME/.config}"
 if [[ ${1:-} != --no-packages ]]; then
 	mapfile -t pkgs < <(grep -vE '^[[:space:]]*(#|$)' -- "$repo/packages.txt")
 	sudo pacman -S --needed -- "${pkgs[@]}"
+	# iwd only brings up the wifi *link*; addresses and DNS come from
+	# systemd-networkd/resolved, which need a .network match to do anything —
+	# systemd ships only inert .example files. Copied, not symlinked: root
+	# should not read config out of a user-writable directory. Never
+	# overwrites, so a hand-tuned /etc survives a re-run.
+	sudo mkdir -p /etc/systemd/network
+	sudo cp -n -- "$repo"/etc/systemd/network/*.network /etc/systemd/network/
+
 	# Installed-but-not-enabled is the classic way to end up with no wifi.
-	sudo systemctl enable --now NetworkManager.service bluetooth.service
+	sudo systemctl enable --now iwd.service systemd-networkd.service \
+		systemd-resolved.service bluetooth.service
 fi
 
 mkdir -p -- "$dest"

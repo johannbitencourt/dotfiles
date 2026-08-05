@@ -13,6 +13,7 @@ config/waybar/style.css     bar styling
 config/foot/foot.ini        terminal
 config/fuzzel/fuzzel.ini    launcher
 config/mako/config          notifications
+etc/systemd/network/*       DHCP for wifi and ethernet (copied into /etc)
 packages.txt                what to install
 install.sh                  installs packages, symlinks config/* into ~/.config/*
 ```
@@ -21,6 +22,35 @@ Started from `hyprland.lua` with no config of their own: `swaybg` (solid
 colour background), `hyprpolkitagent` (GUI auth prompts), and `grim`/`slurp`
 (screenshots — also what makes the desktop portal's screenshot and screencast
 path work for other apps).
+
+## Prerequisites
+
+`packages.txt` covers the desktop, but it can't bootstrap the things needed to
+run `install.sh` in the first place. The `base` metapackage has no `sudo` and
+no `git`, and `linux-firmware` is only an *optional* dep of the kernel — without
+it the wifi and bluetooth radios never appear, which makes `impala` and
+`bluetui` useless. On a minimal Arch install, first:
+
+```bash
+pacman -S --needed sudo git linux-firmware
+```
+
+**Graphics drivers are not in `packages.txt`** — they're host hardware, not
+desktop config, and they're the one part of this setup that is coupled to which
+kernel you booted. `hyprland` satisfies its `opengl-driver` dependency with
+`mesa`, which is right for Intel and AMD and wrong for NVIDIA. This host is an
+NVIDIA RTX 3060 Mobile with no iGPU, and runs:
+
+```bash
+sudo pacman -S --needed nvidia-open-dkms nvidia-utils
+```
+
+`nvidia-open-dkms` pulls in `dkms` (and so `gcc`, `make`), and needs the headers
+for your running kernel installed *first* — `linux-headers`, or
+`linux-cachyos-headers` on the CachyOS kernel. The prebuilt `nvidia-open`
+package is compiled against `extra/linux` and will not load on a CachyOS
+kernel. CachyOS also ships prebuilt `linux-cachyos-nvidia-open`, which skips
+DKMS entirely and is less to maintain.
 
 ## Install
 
@@ -31,11 +61,22 @@ On a fresh machine, this is the whole thing:
 ```
 
 It reads `packages.txt`, runs `sudo pacman -S --needed` on the list (so it
-prompts once for your password and skips anything already present), enables
-NetworkManager and bluetooth, then symlinks each directory under `config/` to
-the matching path in `~/.config`, moving any existing real directory aside to
-`<name>.bak` first. Every package is in the official repos — no AUR helper
-needed.
+prompts once for your password and skips anything already present), copies the
+`.network` files into `/etc/systemd/network/` if they aren't already there,
+enables iwd/networkd/resolved/bluetooth, then symlinks each directory under
+`config/` to the matching path in `~/.config`, moving any existing real
+directory aside to `<name>.bak` first. Every package is in the official repos —
+no AUR helper needed.
+
+Wifi is **iwd**, not NetworkManager: `impala` is an iwd frontend
+(`Depends On: iwd`), and the two are competing backends that fight over the
+radio if both run. `iwd` handles association; `systemd-networkd` and
+`systemd-resolved` handle addresses and DNS, and both ship inside `systemd`, so
+they cost no extra package. They do need a `.network` file to match on — systemd
+ships only inert `.example` ones — which is what `etc/systemd/network/` is for.
+Those two files are the only thing this repo puts outside `~/.config`, they're
+copied rather than symlinked (root shouldn't read config from a user-writable
+path), and `cp -n` means a hand-tuned `/etc` survives a re-run.
 
 No file manager, GTK/Qt theme configurator, logout menu, or OSD daemon is
 included. Each is one line in `packages.txt` if you find you want it; none of
@@ -56,8 +97,8 @@ start-hyprland
 
 ### Booting into it
 
-This repo installs no session entry and touches nothing outside `~/.config`.
-It doesn't need to: the `hyprland` package already ships
+This repo installs no session entry. It doesn't need to: the `hyprland` package
+already ships
 `/usr/share/wayland-sessions/hyprland.desktop`, which runs
 `/usr/bin/start-hyprland`. Both are package-owned, so they survive updates and
 need no maintenance here.
