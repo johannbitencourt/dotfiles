@@ -19,8 +19,12 @@ keys were renamed (0.55 removed `dwindle:pseudotile` and others), and whether
 the `hl.dsp.*` dispatcher names shifted. Both are one-file fixes here.
 
 ```
-config/hypr/hyprland.lua    compositor: monitors, input, look, autostart, rules
-config/hypr/bindings.lua    every keybind, require()d from hyprland.lua
+config/hypr/hyprland.lua    entry point: monitors, env, and the requires below
+config/hypr/looknfeel.lua   borders, gaps, decoration, animation curves
+config/hypr/input.lua       keyboard, pointer, touchpad, gestures
+config/hypr/rules.lua       window and layer rules
+config/hypr/autostart.lua   what starts with the session
+config/hypr/bindings.lua    every keybind
 config/hypr/hyprlock.conf   lock screen (hyprlock is separate, still hyprlang)
 config/hypr/hypridle.conf   lock at 5 min, screen off at 6 min
 config/waybar/config.jsonc  bar: workspaces, clock, network, battery, volume
@@ -259,9 +263,18 @@ is critical whatever the palette.
 
 ## Changing things
 
-Two files: `config/hypr/hyprland.lua` for the compositor,
-`config/hypr/bindings.lua` for the keys. They're separate `require()` scopes, so
-a syntax error in your binds can't take the whole compositor config down with it.
+`config/hypr/hyprland.lua` is the entry point — monitors, environment, and five
+`require()`s. Each of those is its own Lua scope, so a syntax error in one file
+costs you that file's settings rather than the session. Upstream recommends this
+split in the comments of its own example config.
+
+| File | Holds |
+| --- | --- |
+| `looknfeel.lua` | borders, gaps, decoration, animation curves |
+| `input.lua` | keyboard, pointer, touchpad, gestures |
+| `rules.lua` | window and layer rules |
+| `autostart.lua` | the `hyprland.start` handler |
+| `bindings.lua` | keybinds |
 
 The full Lua API is stubbed at `/usr/share/hypr/stubs/hl.meta.lua`, and
 upstream's annotated example config at `/usr/share/hypr/hyprland.lua` is worth
