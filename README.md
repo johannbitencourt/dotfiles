@@ -14,6 +14,8 @@ config/waybar/style.css     bar styling
 config/foot/foot.ini        terminal
 config/fuzzel/fuzzel.ini    launcher
 config/mako/config          notifications (symlink into the current theme)
+config/nvim/                LazyVim; lua/plugins/theme.lua rides the theme switch
+config/herdr/config.toml    terminal workspaces (prefix ctrl+a) — config only
 config/themes/current       symlink naming the active theme — see Themes below
 config/themes/tokyo-*/      one colour file per app, per theme
 etc/systemd/network/*       DHCP for wifi and ethernet (copied into /etc)
@@ -38,7 +40,17 @@ the wifi and bluetooth radios never appear, which makes `impala` and `bluetui`
 useless. On a minimal Arch install, first:
 
 ```bash
-pacman -S --needed sudo git less nano man-db man-pages linux-firmware
+pacman -S --needed sudo git less nano man-db man-pages linux-firmware base-devel
+```
+
+Two entries in `packages.txt` — `zen-browser-bin` and `herdr` — are AUR-only, so
+you also need a helper. `install.sh` uses `yay` when it's on `PATH` and falls
+back to plain `pacman` otherwise (which will then fail loudly on exactly those
+two names). `yay` itself has to be bootstrapped by hand, which is what
+`base-devel` above is for:
+
+```bash
+git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si
 ```
 
 **Graphics drivers are not in `packages.txt`** — they're host hardware, not
@@ -112,6 +124,11 @@ path), and `cp -n` means a hand-tuned `/etc` survives a re-run.
 No file manager, GTK/Qt theme configurator, logout menu, or OSD daemon is
 included. Each is one line in `packages.txt` if you find you want it; none of
 them is needed for the desktop to work.
+
+`zen-browser-bin` is installed but **not** configured here — its profile lives
+in `~/.zen`, is 689 MB, and is machine-state rather than config. Same reasoning
+for `herdr`: `config.toml` is tracked, while the sockets, logs, and
+`release-notes.json` that share that directory are not.
 
 Pass `--no-packages` to only do the symlinking. Because the links point at the
 repo, editing a file here takes effect directly. To uninstall, delete the
@@ -196,6 +213,7 @@ pulls its colours out of `current/` through its own native include:
 | hyprlock | `source = …`, then `$bg` / `$fg` / `$accent` / `$field` |
 | waybar | `@import url("../themes/current/waybar.css")` |
 | mako | `config/mako/config` *is* a symlink — mako has no include |
+| nvim | `lua/plugins/theme.lua` *is* a symlink, returning a LazyVim spec |
 
 `SUPER+SHIFT+T` lists the theme directories in fuzzel, repoints `current`, then
 reloads mako and waybar in place. foot, fuzzel, and hyprlock pick the new colours

@@ -1,0 +1,85 @@
+onboarding = false
+# Herdr terminal workspace configuration.
+
+[theme]
+name = "catppuccin"
+
+[terminal]
+new_cwd = "follow"
+shell_mode = "auto"
+
+[keys]
+prefix = "ctrl+a"
+
+detach = "prefix+ctrl+d"
+reload_config = "prefix+shift+r"
+
+workspace_picker = "prefix+o"
+goto = "prefix+g"
+new_workspace = "prefix+shift+n"
+rename_workspace = "prefix+shift+w"
+close_workspace = "prefix+shift+d"
+previous_workspace = "prefix+["
+next_workspace = "prefix+]"
+switch_workspace = "prefix+shift+1..9"
+
+new_tab = "prefix+c"
+rename_tab = "prefix+r"
+previous_tab = "prefix+shift+h"
+next_tab = "prefix+shift+l"
+switch_tab = "prefix+1..9"
+close_tab = "prefix+shift+x"
+
+split_vertical = "prefix+v"
+split_horizontal = "prefix+s"
+focus_pane_left = "prefix+h"
+focus_pane_down = "prefix+j"
+focus_pane_up = "prefix+k"
+focus_pane_right = "prefix+l"
+last_pane = "prefix+tab"
+zoom = "prefix+z"
+close_pane = "prefix+x"
+resize_mode = "prefix+comma"
+
+toggle_sidebar = "prefix+p"
+edit_scrollback = "prefix+e"
+
+[[keys.command]]
+key = "prefix+n"
+type = "popup"
+command = "yazi"
+width = "90%"
+height = "90%"
+
+[[keys.command]]
+key = "prefix+shift+g"
+type = "popup"
+command = "lazygit"
+width = "90%"
+height = "90%"
+
+[ui]
+sidebar_width = 26
+sidebar_start_collapsed = true
+sidebar_collapsed_mode = "compact"
+pane_borders = true
+pane_gaps = true
+copy_on_select = true
+mouse_capture = true
+prompt_new_tab_name = false
+prompt_new_workspace_name = false
+hide_tab_bar_when_single_tab = false
+accent = "magenta"
+
+[ui.toast]
+delivery = "herdr"
+delay_seconds = 1
+
+[session]
+resume_agents_on_restore = true
+
+[experimental]
+pane_history = true
+
+[advanced]
+scrollback_limit_bytes = 10000000

@@ -12,6 +12,20 @@ mako
 hyprlock
 hypridle
 waybar
+neovim
+herdr
+
+# browser. AUR, like herdr — see the yay note in install.sh.
+zen-browser-bin
+
+# what nvim and herdr actually shell out to. LazyVim's pickers are ripgrep and
+# fd; herdr's prefix+n / prefix+shift+g popups are yazi and lazygit; unzip is
+# how Mason unpacks language servers.
+ripgrep
+fd
+lazygit
+yazi
+unzip
 
 # wallpaper — a solid colour, so no image asset is needed
 swaybg

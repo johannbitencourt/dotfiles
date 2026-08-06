@@ -13,7 +13,14 @@ dest="${XDG_CONFIG_HOME:-$HOME/.config}"
 
 if [[ ${1:-} != --no-packages ]]; then
 	mapfile -t pkgs < <(grep -vE '^[[:space:]]*(#|$)' -- "$repo/packages.txt")
-	sudo pacman -S --needed -- "${pkgs[@]}"
+	# Two entries (zen-browser-bin, herdr) are AUR-only, so prefer yay — it
+	# hands repo packages straight to pacman, so one list covers both. Without
+	# yay, pacman does everything else and fails loudly on those two names.
+	if command -v yay >/dev/null; then
+		yay -S --needed -- "${pkgs[@]}"
+	else
+		sudo pacman -S --needed -- "${pkgs[@]}"
+	fi
 	# iwd only brings up the wifi *link*; addresses and DNS come from
 	# systemd-networkd/resolved, which need a .network match to do anything —
 	# systemd ships only inert .example files. Copied, not symlinked: root
