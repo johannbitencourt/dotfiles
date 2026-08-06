@@ -13,11 +13,11 @@ dest="${XDG_CONFIG_HOME:-$HOME/.config}"
 
 if [[ ${1:-} != --no-packages ]]; then
 	mapfile -t pkgs < <(grep -vE '^[[:space:]]*(#|$)' -- "$repo/packages.txt")
-	# Two entries (zen-browser-bin, herdr) are AUR-only, so prefer yay — it
+	# Two entries (zen-browser-bin, herdr) are AUR-only, so prefer paru — it
 	# hands repo packages straight to pacman, so one list covers both. Without
-	# yay, pacman does everything else and fails loudly on those two names.
-	if command -v yay >/dev/null; then
-		yay -S --needed -- "${pkgs[@]}"
+	# paru, pacman does everything else and fails loudly on those two names.
+	if command -v paru >/dev/null; then
+		paru -S --needed -- "${pkgs[@]}"
 	else
 		sudo pacman -S --needed -- "${pkgs[@]}"
 	fi

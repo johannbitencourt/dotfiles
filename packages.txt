@@ -17,7 +17,7 @@ herdr
 
 # browsers. zen is the daily one; chromium is for Electron-style web apps
 # (Slack, Spotify) so they don't each ship their own runtime.
-# zen-browser-bin is AUR, like herdr — see the yay note in install.sh.
+# zen-browser-bin is AUR, like herdr — see the paru note in install.sh.
 zen-browser-bin
 chromium
 

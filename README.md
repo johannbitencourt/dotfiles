@@ -64,13 +64,21 @@ pacman -S --needed sudo git less nano man-db man-pages linux-firmware base-devel
 ```
 
 Two entries in `packages.txt` — `zen-browser-bin` and `herdr` — are AUR-only, so
-you also need a helper. `install.sh` uses `yay` when it's on `PATH` and falls
+you also need a helper. `install.sh` uses `paru` when it's on `PATH` and falls
 back to plain `pacman` otherwise (which will then fail loudly on exactly those
-two names). `yay` itself has to be bootstrapped by hand, which is what
+two names). `paru` itself has to be bootstrapped by hand, which is what
 `base-devel` above is for:
 
 ```bash
-git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si
+git clone https://aur.archlinux.org/paru-bin.git && cd paru-bin && makepkg -si
+```
+
+`paru-bin` rather than `paru` because the latter builds from source and pulls in
+the whole Rust toolchain to do it. If you added the CachyOS repos above, skip the
+clone entirely — `paru` is prebuilt there:
+
+```bash
+sudo pacman -S paru
 ```
 
 **Graphics drivers are not in `packages.txt`** — they're host hardware, not
