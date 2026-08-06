@@ -46,7 +46,10 @@ hl.bind(mod .. " + SHIFT + T", hl.dsp.exec_cmd(
     -- -type d excludes `current` itself, which is a symlink.
     "cd ~/.config/themes && t=$(find . -maxdepth 1 -type d ! -name . -printf '%f\\n' "
     .. "| sort | fuzzel --dmenu) && ln -sfn \"$t\" current "
-    .. "&& makoctl reload; pkill -SIGUSR2 waybar; hyprctl reload"))
+    .. "&& makoctl reload; pkill -SIGUSR2 waybar; hyprctl reload; "
+    -- swaybg has no reload, so it gets replaced. Orphaning it is fine — init
+    -- adopts it and it outlives the shell this bind runs in.
+    .. "pkill -x swaybg; swaybg -c \"$(cat ~/.config/themes/current/background)\" &"))
 
 -- Night light toggle. hyprsunset 0.4.0 has no config file and no schedule,
 -- so pkill-or-start is the whole state machine.

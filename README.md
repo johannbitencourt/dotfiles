@@ -4,6 +4,20 @@ A small Hyprland desktop. The Hyprland config is Lua
 (`config/hypr/hyprland.lua`), not hyprlang — hyprlang was deprecated in
 Hyprland 0.55 and is slated for removal around 0.57.
 
+**0.57 has not been released.** As of August 2026 the latest tag is v0.56.2 and
+the 0.57 milestone has no due date, so being "0.57-ready" means exactly one
+thing: the config is written in Lua, which is the format that survives the
+hyprlang removal whenever it lands. Every `hl.*` call and every `hl.config` key
+used here is checked against the API stub the installed package ships
+(`/usr/share/hypr/stubs/hl.meta.lua`), so it is current for what exists today.
+`hyprlock.conf` and `hypridle.conf` stay hyprlang on purpose — hyprlock and
+hypridle are separate projects with their own config format, unaffected by
+Hyprland's deprecation.
+
+When 0.57 does land, two things are worth rechecking: whether any `hl.config`
+keys were renamed (0.55 removed `dwindle:pseudotile` and others), and whether
+the `hl.dsp.*` dispatcher names shifted. Both are one-file fixes here.
+
 ```
 config/hypr/hyprland.lua    compositor: monitors, input, look, autostart, rules
 config/hypr/bindings.lua    every keybind, require()d from hyprland.lua
@@ -229,6 +243,7 @@ pulls its colours out of `current/` through its own native include:
 | mako | `config/mako/config` *is* a symlink — mako has no include |
 | nvim | `lua/plugins/theme.lua` *is* a symlink, returning a LazyVim spec |
 | Hyprland | `hyprland.lua` `dofile`s `current/hyprland.lua` for border colours |
+| swaybg | `swaybg -c "$(cat …/current/background)"` — one hex per theme |
 
 `SUPER+SHIFT+T` lists the theme directories in fuzzel, repoints `current`, then
 reloads in place everything that can: mako, waybar, and Hyprland itself via
@@ -237,7 +252,7 @@ next time they launch.
 
 Three themes ship: `tokyo-night`, `tokyo-day`, and `aura` (ported from the
 Omarchy theme of the same name). To add a fourth, copy any of them and edit the
-seven files — it shows up in the picker with no other change.
+eight files — it shows up in the picker with no other change.
 
 The one thing deliberately not themed is waybar's critical-battery red: critical
 is critical whatever the palette.

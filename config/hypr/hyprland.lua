@@ -48,9 +48,11 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("foot --server")
     hl.exec_cmd("waybar")
     hl.exec_cmd("hypridle")
-    -- Solid colour rather than an image, so the repo carries no binary asset.
-    -- Swap -c for `-i ~/path/to.png -m fill` if you want a picture.
-    hl.exec_cmd("swaybg -c '#1a1b26'")
+    -- Solid colour from the active theme, so the repo carries no binary asset.
+    -- Swap -c for `-i ~/path/to.png -m fill` if you want a picture. The same
+    -- command is repeated in the theme picker in bindings.lua — two short
+    -- duplicates beat a module existing only to share one string.
+    hl.exec_cmd("swaybg -c \"$(cat ~/.config/themes/current/background)\"")
     -- GUI authentication prompts (e.g. mounting a disk, editing a system file)
     hl.exec_cmd("/usr/lib/hyprpolkitagent/hyprpolkitagent")
     -- Clipboard history. Only the watcher runs; SUPER+SHIFT+V picks from it.
