@@ -228,15 +228,19 @@ pulls its colours out of `current/` through its own native include:
 | waybar | `@import url("../themes/current/waybar.css")` |
 | mako | `config/mako/config` *is* a symlink — mako has no include |
 | nvim | `lua/plugins/theme.lua` *is* a symlink, returning a LazyVim spec |
+| Hyprland | `hyprland.lua` `dofile`s `current/hyprland.lua` for border colours |
 
 `SUPER+SHIFT+T` lists the theme directories in fuzzel, repoints `current`, then
-reloads mako and waybar in place. foot, fuzzel, and hyprlock pick the new colours
-up the next time they launch.
+reloads in place everything that can: mako, waybar, and Hyprland itself via
+`hyprctl reload`. foot, fuzzel, hyprlock and nvim pick the new colours up the
+next time they launch.
 
-To add a theme, copy `tokyo-night/` to a new directory and edit the five files;
-it shows up in the picker with no other change. Two things are deliberately not
-themed: Hyprland's own border colours (two literals in `hyprland.lua`, because
-Lua can't `require` across config directories) and waybar's critical-battery red.
+Three themes ship: `tokyo-night`, `tokyo-day`, and `aura` (ported from the
+Omarchy theme of the same name). To add a fourth, copy any of them and edit the
+seven files — it shows up in the picker with no other change.
+
+The one thing deliberately not themed is waybar's critical-battery red: critical
+is critical whatever the palette.
 
 ## Changing things
 

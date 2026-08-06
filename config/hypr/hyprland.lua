@@ -9,14 +9,21 @@ hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_SIZE", "24")
 
+-- Border colours come from the active theme. dofile() rather than require()
+-- because the themes live outside this directory, so they aren't on package.path.
+-- pcall: a missing or broken theme file costs you themed borders, not a session.
+local ok, theme = pcall(dofile, os.getenv("HOME") .. "/.config/themes/current/hyprland.lua")
+if not ok then
+    theme = { active_border = "rgba(7aa2f7ee)", inactive_border = "rgba(414868aa)" }
+end
+
 hl.config({
     input      = { kb_layout = "us", follow_mouse = 1, numlock_by_default = true },
     general    = {
         gaps_in = 4, gaps_out = 8, border_size = 2, layout = "dwindle",
         col = {
-            -- Tokyo Night, same palette as waybar/foot/fuzzel/mako.
-            active_border   = { colors = { "rgba(7aa2f7ee)", "rgba(bb9af7ee)" }, angle = 45 },
-            inactive_border = "rgba(414868aa)",
+            active_border   = theme.active_border,
+            inactive_border = theme.inactive_border,
         },
     },
     dwindle    = { preserve_split = true },
