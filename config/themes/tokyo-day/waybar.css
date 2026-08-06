@@ -1,3 +1,2 @@
-window#waybar { background-color: #e1e2e7; color: #3760bf; }
-#workspaces button { color: #3760bf; }
-#workspaces button.active { color: #2e7de9; }
+@define-color foreground #3760bf;
+@define-color background #e1e2e7;

@@ -26,7 +26,7 @@ hl.window_rule({
 -- tile. Sized rather than left to the app, which usually picks something tiny.
 hl.window_rule({
 	name = "float-dialogs",
-	match = { class = "^(xdg-desktop-portal-gtk|hyprpolkitagent|org.gnome.Nautilus)$" },
+	match = { class = "^(xdg-desktop-portal-gtk|hyprpolkitagent)$" },
 	float = true,
 	size = "800 600",
 	center = true,
@@ -35,7 +35,7 @@ hl.window_rule({
 -- Small single-purpose GUIs from packages.txt. Same reasoning.
 hl.window_rule({
 	name = "float-utilities",
-	match = { class = "^(pavucontrol|system-config-printer|imv|virt-viewer|\\.blueman-manager-wrapped)$" },
+	match = { class = "^(pavucontrol|system-config-printer|imv|virt-viewer)$" },
 	float = true,
 	center = true,
 })
@@ -57,8 +57,8 @@ hl.window_rule({
 	no_screen_share = true,
 })
 
--- Blur is off globally, so layers get the cheap treatment instead: the bar and
--- the launcher skip the fade so they feel instant.
+-- The launcher is the one surface where the fade is pure latency: you open it
+-- to type immediately. Skipping the animation makes it feel instant.
 hl.layer_rule({
 	name = "instant-launcher",
 	match = { namespace = "^(launcher|fuzzel)$" },

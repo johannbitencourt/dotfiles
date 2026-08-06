@@ -42,8 +42,9 @@ hl.config({
 	cursor = {
 		-- Hide the pointer while typing; any movement brings it back.
 		hide_on_key_press = true,
-		-- Don't teleport the pointer to a newly focused window.
-		no_warps = true,
+		-- Omarchy's value: the pointer follows you to the new workspace, so the
+		-- next click lands where you're looking.
+		warp_on_change_workspace = 1,
 		-- Keeps the cursor from breaking VRR on the fullscreen path.
 		no_break_fs_vrr = true,
 	},

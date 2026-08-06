@@ -10,16 +10,16 @@ hl.bind(mod .. " + SHIFT + E", hl.dsp.exit())
 -- Power menu. Escaping fuzzel leaves no argument at all (unquoted expansion),
 -- so systemctl just lists units instead of doing anything.
 hl.bind(mod .. " + SHIFT + Q", hl.dsp.exec_cmd(
-    "systemctl $(printf 'suspend\\nreboot\\npoweroff' | fuzzel --dmenu)"))
+	"systemctl $(printf 'suspend\\nreboot\\npoweroff' | fuzzel --dmenu)"))
 
 for _, dir in ipairs({ "left", "right", "up", "down" }) do
-    hl.bind(mod .. " + " .. dir,         hl.dsp.focus({ direction = dir }))
-    hl.bind(mod .. " + SHIFT + " .. dir, hl.dsp.window.move({ direction = dir }))
+	hl.bind(mod .. " + " .. dir,         hl.dsp.focus({ direction = dir }))
+	hl.bind(mod .. " + SHIFT + " .. dir, hl.dsp.window.move({ direction = dir }))
 end
 
 for i = 1, 5 do
-    hl.bind(mod .. " + " .. i,         hl.dsp.focus({ workspace = i }))
-    hl.bind(mod .. " + SHIFT + " .. i, hl.dsp.window.move({ workspace = i }))
+	hl.bind(mod .. " + " .. i,         hl.dsp.focus({ workspace = i }))
+	hl.bind(mod .. " + SHIFT + " .. i, hl.dsp.window.move({ workspace = i }))
 end
 
 hl.bind(mod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
@@ -28,7 +28,7 @@ hl.bind(mod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 -- Screenshot: region to clipboard, whole screen to a file.
 hl.bind(mod .. " + SHIFT + S", hl.dsp.exec_cmd("grim -g \"$(slurp)\" - | wl-copy"))
 hl.bind("Print", hl.dsp.exec_cmd(
-    "mkdir -p ~/Pictures && grim ~/Pictures/$(date +%Y%m%d-%H%M%S).png"))
+	"mkdir -p ~/Pictures && grim ~/Pictures/$(date +%Y%m%d-%H%M%S).png"))
 
 -- Scratchpad: a window parked off-layout that toggles back into view.
 hl.bind(mod .. " + S",         hl.dsp.workspace.toggle_special("magic"))
@@ -36,20 +36,21 @@ hl.bind(mod .. " + SHIFT + M", hl.dsp.window.move({ workspace = "special:magic" 
 
 -- Clipboard history through the launcher we already have.
 hl.bind(mod .. " + SHIFT + V", hl.dsp.exec_cmd(
-    "cliphist list | fuzzel --dmenu | cliphist decode | wl-copy"))
+	"cliphist list | fuzzel --dmenu | cliphist decode | wl-copy"))
 
 -- Theme picker. Flips themes/current, then nudges everything that can reload in
 -- place: mako, waybar, and Hyprland itself (which re-reads the theme's border
 -- colours through hyprland.lua's dofile). foot, fuzzel, hyprlock and nvim read
 -- the theme on next launch.
 hl.bind(mod .. " + SHIFT + T", hl.dsp.exec_cmd(
-    -- -type d excludes `current` itself, which is a symlink.
-    "cd ~/.config/themes && t=$(find . -maxdepth 1 -type d ! -name . -printf '%f\\n' "
-    .. "| sort | fuzzel --dmenu) && ln -sfn \"$t\" current "
-    .. "&& makoctl reload; pkill -SIGUSR2 waybar; hyprctl reload; "
-    -- swaybg has no reload, so it gets replaced. Orphaning it is fine — init
-    -- adopts it and it outlives the shell this bind runs in.
-    .. "pkill -x swaybg; swaybg -c \"$(cat ~/.config/themes/current/background)\" &"))
+	-- -type d excludes `current` itself, which is a symlink.
+	"cd ~/.config/themes && t=$(find . -maxdepth 1 -type d ! -name . -printf '%f\\n' "
+	.. "| sort | fuzzel --dmenu) && ln -sfn \"$t\" current "
+	.. "&& makoctl reload; pkill -SIGUSR2 waybar; hyprctl reload; "
+	-- swaybg has no reload, so it gets replaced. Orphaning it is fine — init
+	-- adopts it and it outlives the shell this bind runs in.
+	.. "pkill -x swaybg; c=$(cat ~/.config/themes/current/background 2>/dev/null); "
+	.. "swaybg -c \"${c:-#1a1b26}\" &"))
 
 -- Night light toggle. hyprsunset 0.4.0 has no config file and no schedule,
 -- so pkill-or-start is the whole state machine.
@@ -70,7 +71,7 @@ hl.bind("XF86AudioPause",        hl.dsp.exec_cmd("playerctl play-pause"),       
 -- exec_cmd runs through a shell, so $(...) works. BAT* rather than BAT0:
 -- this machine's battery is BAT1 and the numbering isn't portable.
 hl.bind(mod .. " + B", hl.dsp.exec_cmd(
-    [[notify-send "$(date '+%H:%M  %a %d %b')" ]]
-    .. [["Battery $(cat /sys/class/power_supply/BAT*/capacity)% ]]
-    .. [[($(cat /sys/class/power_supply/BAT*/status)) - ]]
-    .. [[network $(ip -4 route show default | grep -q . && echo up || echo down)"]]))
+	[[notify-send "$(date '+%H:%M  %a %d %b')" ]]
+	.. [["Battery $(cat /sys/class/power_supply/BAT*/capacity)% ]]
+	.. [[($(cat /sys/class/power_supply/BAT*/status)) - ]]
+	.. [[network $(ip -4 route show default | grep -q . && echo up || echo down)"]]))

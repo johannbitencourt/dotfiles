@@ -13,14 +13,10 @@ dest="${XDG_CONFIG_HOME:-$HOME/.config}"
 
 if [[ ${1:-} != --no-packages ]]; then
 	mapfile -t pkgs < <(grep -vE '^[[:space:]]*(#|$)' -- "$repo/packages.txt")
-	# Two entries (zen-browser-bin, herdr) are AUR-only, so prefer paru — it
-	# hands repo packages straight to pacman, so one list covers both. Without
-	# paru, pacman does everything else and fails loudly on those two names.
-	if command -v paru >/dev/null; then
-		paru -S --needed -- "${pkgs[@]}"
-	else
-		sudo pacman -S --needed -- "${pkgs[@]}"
-	fi
+	# Every name in packages.txt is in Arch's official repos, so pacman alone
+	# does the whole list — no AUR helper to install or keep working. The few
+	# AUR extras this setup can use are listed in the README and left to you.
+	sudo pacman -S --needed -- "${pkgs[@]}"
 	# iwd only brings up the wifi *link*; addresses and DNS come from
 	# systemd-networkd/resolved, which need a .network match to do anything —
 	# systemd ships only inert .example files. Copied, not symlinked: root

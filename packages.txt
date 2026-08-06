@@ -5,7 +5,9 @@
 # compositor
 hyprland
 
-# the apps configured under config/
+# the apps configured under config/. herdr is NOT here — it is AUR-only, and
+# this list is deliberately pacman-installable. Its config is still tracked
+# under config/herdr/, so install it by hand and the settings are waiting.
 foot
 fuzzel
 mako
@@ -13,24 +15,17 @@ hyprlock
 hypridle
 waybar
 neovim
-herdr
 
-# browsers. zen is the daily one; chromium is for Electron-style web apps
-# (Slack, Spotify) so they don't each ship their own runtime.
-# zen-browser-bin is AUR, like herdr — see the paru note in install.sh.
-zen-browser-bin
+# browser. Also the runtime for Electron-style web apps (Slack, Spotify) so
+# they don't each ship their own. zen-browser is AUR-only — see the README's
+# optional extras if you want it as the daily driver.
 chromium
 
 # runtime version manager — config.toml pins node/bun/zig/etc per project
 mise
 
-# API client (AUR) and the game engine
-bruno-bin
+# game engine
 godot
-
-# file transfer to phones/laptops on the LAN (AUR; the non-bin one builds
-# Flutter from source, which takes an age)
-localsend-bin
 
 # viewers. zathura needs a backend to open anything — mupdf is the light one.
 # imv is configured under config/imv; mpv is used as shipped.
@@ -46,6 +41,11 @@ imagemagick
 # is the GUI that "print settings" actually means.
 cups
 system-config-printer
+
+# waybar's cpu module opens btop; the tray and window-title icons need an icon
+# theme, and config.jsonc asks for Papirus-Dark by name.
+btop
+papirus-icon-theme
 
 # lstopo — hardware topology
 hwloc

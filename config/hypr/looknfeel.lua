@@ -8,52 +8,63 @@ if not ok then
 	theme = { active_border = "rgba(7aa2f7ee)", inactive_border = "rgba(414868aa)" }
 end
 
+-- Geometry and decoration follow Omarchy's defaults, which is the look this
+-- machine actually runs. That means blur and shadows ON and rounding 0 — the
+-- opposite of a performance-first setup, and a deliberate trade.
 hl.config({
 	general = {
-		gaps_in = 4,
-		gaps_out = 8,
+		gaps_in = 5,
+		gaps_out = 10,
 		border_size = 2,
 		layout = "dwindle",
 		col = {
 			active_border = theme.active_border,
 			inactive_border = theme.inactive_border,
 		},
-		-- Drag a border or a gap to resize, rather than only SUPER+right-drag.
-		resize_on_border = true,
-		hover_icon_on_border = true,
+		resize_on_border = false,
+		allow_tearing = false,
 		-- Floating windows snap to each other and to monitor edges.
 		snap = { enabled = true, window_gap = 10, monitor_gap = 10 },
 	},
 
 	decoration = {
-		rounding = 8,
-		-- Slight transparency on unfocused windows reads as depth without
-		-- costing what blur costs.
-		active_opacity = 1.0,
-		inactive_opacity = 0.95,
-		-- Blur and shadows are the expensive pair, and this is a laptop on a
-		-- discrete GPU. Everything else here is close to free.
-		blur = { enabled = false },
-		shadow = { enabled = false },
+		rounding = 0,
+		shadow = {
+			enabled = true,
+			range = 2,
+			render_power = 3,
+			color = "rgba(1a1a1aee)",
+		},
+		blur = {
+			enabled = true,
+			size = 2,
+			passes = 2,
+			special = true,
+			brightness = 0.60,
+			contrast = 0.75,
+		},
 	},
 
 	dwindle = {
 		preserve_split = true,
-		-- Split along the longer edge, so tiles stay near-square as they nest.
-		smart_split = false,
-		smart_resizing = true,
-		default_split_ratio = 1.0,
+		-- 2 = always split to the right/below, so new windows land predictably
+		-- rather than following the cursor's half of the tile.
+		force_split = 2,
 	},
 
 	misc = {
 		disable_hyprland_logo = true,
 		disable_splash_rendering = true,
+		disable_scale_notification = true,
 		force_default_wallpaper = 0,
 		-- Variable refresh rate: 1 is always, 2 only for fullscreen. 2 avoids
 		-- the flicker some panels show when the desktop itself is VRR.
 		vrr = 2,
-		-- Don't let a background app steal focus mid-typing.
-		focus_on_activate = false,
+		-- Omarchy's value: let an app raise itself when it asks to.
+		focus_on_activate = true,
+		-- Clicking a window under a fullscreen one un-fullscreens rather than
+		-- leaving you clicking at something you can't see.
+		on_focus_under_fullscreen = 1,
 		-- Terminals hide themselves when a GUI they launched is on top.
 		enable_swallow = true,
 		swallow_regex = "^(foot|footclient)$",
@@ -62,6 +73,7 @@ hl.config({
 		render_unfocused_fps = 10,
 		-- Warn about an app that stops responding, rather than freezing with it.
 		enable_anr_dialog = true,
+		anr_missed_pings = 3,
 	},
 
 	ecosystem = {
@@ -89,7 +101,9 @@ hl.config({ animations = { enabled = true } })
 
 hl.animation({ leaf = "global", enabled = true, speed = 10, bezier = "default" })
 hl.animation({ leaf = "border", enabled = true, speed = 5.39, bezier = "easeOutQuint" })
-hl.animation({ leaf = "windows", enabled = true, speed = 4.79, spring = "easy" })
+-- Omarchy uses the easeOutQuint bezier here rather than upstream's spring; the
+-- `easy` spring above is left defined in case you want to switch back.
+hl.animation({ leaf = "windows", enabled = true, speed = 3.79, bezier = "easeOutQuint" })
 hl.animation({ leaf = "windowsIn", enabled = true, speed = 4.1, spring = "easy", style = "popin 87%" })
 hl.animation({ leaf = "windowsOut", enabled = true, speed = 1.49, bezier = "linear", style = "popin 87%" })
 hl.animation({ leaf = "fadeIn", enabled = true, speed = 1.73, bezier = "almostLinear" })
@@ -100,7 +114,9 @@ hl.animation({ leaf = "layersIn", enabled = true, speed = 4, bezier = "easeOutQu
 hl.animation({ leaf = "layersOut", enabled = true, speed = 1.5, bezier = "linear", style = "fade" })
 hl.animation({ leaf = "fadeLayersIn", enabled = true, speed = 1.79, bezier = "almostLinear" })
 hl.animation({ leaf = "fadeLayersOut", enabled = true, speed = 1.39, bezier = "almostLinear" })
-hl.animation({ leaf = "workspaces", enabled = true, speed = 1.94, bezier = "almostLinear", style = "fade" })
-hl.animation({ leaf = "workspacesIn", enabled = true, speed = 1.21, bezier = "almostLinear", style = "fade" })
-hl.animation({ leaf = "workspacesOut", enabled = true, speed = 1.94, bezier = "almostLinear", style = "fade" })
+-- Workspace switching is instant in Omarchy's config, and switching is the
+-- thing you do most — the animation is pure latency.
+hl.animation({ leaf = "workspaces", enabled = false })
+hl.animation({ leaf = "workspacesIn", enabled = false })
+hl.animation({ leaf = "workspacesOut", enabled = false })
 hl.animation({ leaf = "zoomFactor", enabled = true, speed = 7, bezier = "quick" })

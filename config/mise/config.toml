@@ -1,8 +1,10 @@
 [settings]
+# Read a bare `.ruby-version` file when a project has one. Ruby isn't pinned
+# below — this only opts into the legacy file format if a project brings it.
 idiomatic_version_file_enable_tools = ["ruby"]
 
-[settings.ruby]
-
+# Only node is pinned. The rest float, which is what you want for tooling that
+# isn't reproducing a build — pin one here the day a project needs it.
 [tools]
 bun = "latest"
 java = "openjdk-25"

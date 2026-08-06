@@ -27,14 +27,17 @@ config/hypr/autostart.lua   what starts with the session
 config/hypr/bindings.lua    every keybind
 config/hypr/hyprlock.conf   lock screen (hyprlock is separate, still hyprlang)
 config/hypr/hypridle.conf   lock at 5 min, screen off at 6 min
-config/waybar/config.jsonc  bar: workspaces, clock, network, battery, volume
-config/waybar/style.css     bar styling
+config/waybar/config.jsonc  bar: workspaces, window, clock, tray, bluetooth,
+                            network, volume, cpu, battery
+config/waybar/style.css     bar layout (colours come from the theme)
 config/foot/foot.ini        terminal
 config/fuzzel/fuzzel.ini    launcher
 config/mako/config          notifications (symlink into the current theme)
 config/nvim/                LazyVim; lua/plugins/theme.lua rides the theme switch
-config/herdr/config.toml    terminal workspaces (prefix ctrl+a) — config only
-config/mise/config.toml     pinned tool versions (node, bun, zig, java, …)
+                            (from the LazyVim starter — its Apache LICENSE stays)
+config/herdr/config.toml    terminal workspaces (prefix ctrl+a) — config only,
+                            herdr itself is an optional AUR extra
+config/mise/config.toml     tool versions — node pinned, the rest track latest
 config/imv/config           image viewer keybinds (print, delete, rotate)
 config/themes/current       symlink naming the active theme — see Themes below
 config/themes/tokyo-*/      one colour file per app, per theme
@@ -63,23 +66,36 @@ useless. On a minimal Arch install, first:
 pacman -S --needed sudo git less nano man-db man-pages linux-firmware base-devel
 ```
 
-Two entries in `packages.txt` — `zen-browser-bin` and `herdr` — are AUR-only, so
-you also need a helper. `install.sh` uses `paru` when it's on `PATH` and falls
-back to plain `pacman` otherwise (which will then fail loudly on exactly those
-two names). `paru` itself has to be bootstrapped by hand, which is what
-`base-devel` above is for:
+**No AUR helper is needed.** Every one of the 54 names in `packages.txt` comes
+from `core`, `extra`, or `multilib`, so `pacman` installs the whole list on a
+stock Arch system with no third-party repos and no `makepkg`. That's deliberate:
+an AUR helper is one more thing to bootstrap, and it breaks on every `libalpm`
+soname bump until you rebuild it.
+
+### Optional AUR extras
+
+Four things this setup can use are AUR-only and are **not** installed by
+`install.sh`. Nothing here depends on them — skip the whole section if you like:
+
+| Package | What it is | Note |
+| --- | --- | --- |
+| `herdr` | terminal workspaces | `config/herdr/config.toml` is tracked, so it's configured the moment you install it |
+| `zen-browser-bin` | browser | `chromium` is in `packages.txt` and covers browsing either way |
+| `bruno-bin` | API client | no official-repo equivalent |
+| `localsend-bin` | LAN file transfer | the non-`bin` build compiles Flutter from source |
+
+To install any of them you need an AUR helper, which `base-devel` above is for:
 
 ```bash
 git clone https://aur.archlinux.org/paru-bin.git && cd paru-bin && makepkg -si
+paru -S herdr
 ```
 
 `paru-bin` rather than `paru` because the latter builds from source and pulls in
-the whole Rust toolchain to do it. If you added the CachyOS repos above, skip the
-clone entirely — `paru` is prebuilt there:
-
-```bash
-sudo pacman -S paru
-```
+the whole Rust toolchain to do it. If a prebuilt `paru` ever fails with
+`libalpm.so.NN: cannot open shared object file`, it was built against an older
+pacman — rebuild it from `paru.git`, which compiles against the `libalpm` you
+actually have.
 
 **Graphics drivers are not in `packages.txt`** — they're host hardware, not
 desktop config, and they're the one part of this setup that is coupled to which
@@ -131,9 +147,15 @@ interactive latency. It needs `CONFIG_SCHED_CLASS_EXT`, which CachyOS enables an
 stock Arch has had since 6.12; check with `ls /sys/kernel/sched_ext`.
 `ananicy-cpp` applies nice/ioclass rules per process.
 
-One thing CachyOS gives you for free that plain Arch does not: zram, via
-`cachyos-settings`. On stock Arch it's the `zram-generator` package plus a short
-`/etc/systemd/zram-generator.conf`. Check with `zramctl`.
+`cachyos-settings` bundles a set of sysctl/udev defaults including a zram
+config, but installing the CachyOS *kernel* does not pull it in — the two are
+independent. This host takes the plainer route and runs Arch's own
+`zram-generator` package with a short `/etc/systemd/zram-generator.conf`, which
+works the same on any kernel. Check either with `zramctl`.
+
+`cachyos-settings`, `chwd`, `uksmd`, `scx-scheds`, and `ananicy-cpp` are all
+optional and none are installed here. The kernel alone is what this host
+actually uses.
 
 ## Install
 
@@ -143,13 +165,16 @@ On a fresh machine, this is the whole thing:
 ./install.sh
 ```
 
-It reads `packages.txt`, runs `sudo pacman -S --needed` on the list (so it
-prompts once for your password and skips anything already present), copies the
-`.network` files into `/etc/systemd/network/` if they aren't already there,
-enables iwd/networkd/resolved/bluetooth, then symlinks each directory under
-`config/` to the matching path in `~/.config`, moving any existing real
-directory aside to `<name>.bak` first. Every package is in the official repos —
-no AUR helper needed.
+It reads `packages.txt` and installs the list with `sudo pacman -S --needed` (so
+it prompts once for your password and skips anything already present). Then it
+copies the `.network` files into `/etc/systemd/network/` if they aren't already
+there, enables iwd/networkd/resolved/bluetooth, and symlinks each directory
+under `config/` to the matching path in `~/.config`, moving any existing real
+directory aside to `<name>.bak` first.
+
+Every package is in the official repos — no AUR helper needed. The optional AUR
+extras in Prerequisites are yours to install or ignore; `install.sh` never
+touches them.
 
 Wifi is **iwd**, not NetworkManager: `impala` is an iwd frontend
 (`Depends On: iwd`), and the two are competing backends that fight over the
@@ -165,10 +190,11 @@ No file manager, GTK/Qt theme configurator, logout menu, or OSD daemon is
 included. Each is one line in `packages.txt` if you find you want it; none of
 them is needed for the desktop to work.
 
-`zen-browser-bin` is installed but **not** configured here — its profile lives
-in `~/.zen`, is 689 MB, and is machine-state rather than config. Same reasoning
-for `herdr`: `config.toml` is tracked, while the sockets, logs, and
-`release-notes.json` that share that directory are not.
+Neither AUR browser nor `herdr` is configured beyond what's tracked here. A
+`zen-browser` profile lives in `~/.zen`, is 689 MB, and is machine-state rather
+than config. For `herdr`, `config.toml` is tracked, while the sockets, logs, and
+`release-notes.json` that share that directory are not — so installing herdr
+later picks the tracked settings up with no extra step.
 
 Pass `--no-packages` to only do the symlinking. Because the links point at the
 repo, editing a file here takes effect directly. To uninstall, delete the
@@ -251,7 +277,7 @@ pulls its colours out of `current/` through its own native include:
 | --- | --- |
 | foot, fuzzel | `include=~/.config/themes/current/…` |
 | hyprlock | `source = …`, then `$bg` / `$fg` / `$accent` / `$field` |
-| waybar | `@import url("../themes/current/waybar.css")` |
+| waybar | `@import url(…)`, theme supplies `@foreground` / `@background` |
 | mako | `config/mako/config` *is* a symlink — mako has no include |
 | nvim | `lua/plugins/theme.lua` *is* a symlink, returning a LazyVim spec |
 | Hyprland | `hyprland.lua` `dofile`s `current/hyprland.lua` for border colours |
@@ -265,6 +291,21 @@ next time they launch.
 Three themes ship: `tokyo-night`, `tokyo-day`, and `aura` (ported from the
 Omarchy theme of the same name). To add a fourth, copy any of them and edit the
 eight files — it shows up in the picker with no other change.
+
+`neovim.lua` names a plugin as well as a colourscheme, so a theme can bring its
+own: `tokyo-*` use `folke/tokyonight.nvim`, and `aura` — which is the Dracula
+palette — uses `Mofiqul/dracula.nvim`. lazy.nvim installs whichever the active
+theme asks for on next launch.
+
+Two things deliberately stay put across a switch. **herdr** keeps its own
+`catppuccin` theme: it has no include mechanism, so following the switch would
+mean rewriting `config.toml` on every theme change. And **waybar's battery
+warning and critical colours** are fixed — a flat battery is a flat battery
+whatever the palette.
+
+One side effect worth knowing: `themes/current` is tracked in git, so switching
+themes leaves `git status` dirty. That's the cost of the symlink being the
+mechanism rather than a generated file.
 
 The one thing deliberately not themed is waybar's critical-battery red: critical
 is critical whatever the palette.

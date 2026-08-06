@@ -1,34 +1,133 @@
+// Layout follows the Omarchy bar this machine runs. Modules that only existed
+// to call omarchy-* scripts are gone: the omarchy menu button, update checker,
+// weather, voxtype, and the screen-recording / idle / notification-silencing
+// indicators. Everything kept is wired to something in packages.txt.
 {
-    "layer": "top",
-    "position": "top",
-    "height": 28,
-    "modules-left": ["hyprland/workspaces"],
-    "modules-center": ["clock"],
-    "modules-right": ["network", "battery", "wireplumber"],
+  "reload_style_on_change": true,
+  "layer": "top",
+  "position": "top",
+  "spacing": 0,
+  "height": 26,
+  "margin-top": 5,
+  "margin-bottom": 2,
+  "icon-theme": "Papirus-Dark",
+  "modules-left": ["hyprland/workspaces", "hyprland/window"],
+  "modules-center": ["clock"],
+  "modules-right": [
+    "group/tray-expander",
+    "bluetooth",
+    "network",
+    "pulseaudio",
+    "cpu",
+    "battery"
+  ],
 
-    "hyprland/workspaces": {
-        "on-click": "activate"
+  "hyprland/workspaces": {
+    "on-click": "activate",
+    "format": "{icon}",
+    "format-icons": {
+      "default": "",
+      "1": "1",
+      "2": "2",
+      "3": "3",
+      "4": "4",
+      "5": "5",
+      "active": "󱓻"
     },
-    "clock": {
-        "format": "{:%H:%M}",
-        "tooltip-format": "{:%A, %d %B %Y}"
+    "persistent-workspaces": { "1": [], "2": [], "3": [], "4": [], "5": [] }
+  },
+
+  "hyprland/window": {
+    "format": "{title}",
+    "icon": true,
+    "icon-size": 13,
+    "separate-outputs": true,
+    "max-length": 30
+  },
+
+  "clock": {
+    "format": "{:%a %I:%M %p}",
+    "format-alt": "{:%b %d W%V}",
+    "tooltip": false
+  },
+
+  "cpu": {
+    "interval": 5,
+    "format": "{usage}% 󰍛",
+    "on-click": "footclient -e btop"
+  },
+
+  "network": {
+    "format-icons": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],
+    "format": "{icon}",
+    "format-wifi": "{icon}",
+    "format-ethernet": "󰀂",
+    "format-disconnected": "󰤮",
+    "tooltip-format-wifi": "{essid} ({frequency} GHz)",
+    "tooltip-format-ethernet": "Connected",
+    "tooltip-format-disconnected": "Disconnected",
+    "interval": 3,
+    "spacing": 1,
+    // impala is the iwd TUI; this setup uses iwd, not NetworkManager.
+    "on-click": "footclient -e impala"
+  },
+
+  "bluetooth": {
+    "format": "",
+    "format-disabled": "󰂲",
+    "format-off": "󰂲",
+    "format-connected": "󰂱",
+    "format-no-controller": "",
+    "tooltip-format": "Devices connected: {num_connections}",
+    "on-click": "footclient -e bluetui"
+  },
+
+  "pulseaudio": {
+    "format": "{volume}% {icon}",
+    "format-muted": "0% ",
+    "format-icons": {
+      "headphone": "",
+      "headset": "",
+      "default": ["", "", ""]
     },
-    "network": {
-        "format-wifi": "  {essid}",
-        "format-ethernet": " Wired",
-        "format-disconnected": " Offline",
-        "tooltip-format": "{ifname}: {ipaddr}/{cidrv4}"
+    "tooltip-format": "Playing at {volume}%",
+    "scroll-step": 5,
+    "on-click": "pavucontrol",
+    "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
+  },
+
+  "battery": {
+    "format": "{capacity}% {icon}",
+    "format-icons": {
+      "charging": ["󰢜", "󰂆", "󰂇", "󰂈", "󰢝", "󰂉", "󰢞", "󰂊", "󰂋", "󰂅"],
+      "default": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"]
     },
-    "battery": {
-        "states": { "critical": 15 },
-        "format": "{icon} {capacity}%",
-        "format-icons": ["", "", "", "", ""],
-        "format-charging": " {capacity}%"
+    "format-full": "󰂅",
+    "tooltip-format-discharging": "{power:>1.0f}W↓ {capacity}%",
+    "tooltip-format-charging": "{power:>1.0f}W↑ {capacity}%",
+    "interval": 5,
+    // Same power menu as SUPER+SHIFT+Q. Escaping fuzzel leaves no argument at
+    // all, so systemctl just lists units instead of acting.
+    "on-click": "systemctl $(printf 'suspend\\nreboot\\npoweroff' | fuzzel --dmenu)",
+    "states": { "warning": 20, "critical": 10 }
+  },
+
+  "group/tray-expander": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 600,
+      "children-class": "tray-group-item"
     },
-    "wireplumber": {
-        "format": "{icon} {volume}%",
-        "format-muted": "",
-        "format-icons": ["", "", ""],
-        "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
-    }
+    "modules": ["custom/expand-icon", "tray"]
+  },
+
+  "custom/expand-icon": {
+    "format": " ",
+    "tooltip": false
+  },
+
+  "tray": {
+    "icon-size": 12,
+    "spacing": 17
+  }
 }
