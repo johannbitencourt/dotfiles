@@ -31,7 +31,7 @@ if [[ ${1:-} != --no-packages ]]; then
 
 	# Installed-but-not-enabled is the classic way to end up with no wifi.
 	sudo systemctl enable --now iwd.service systemd-networkd.service \
-		systemd-resolved.service bluetooth.service
+		systemd-resolved.service bluetooth.service cups.service
 fi
 
 mkdir -p -- "$dest"

@@ -1,0 +1,13 @@
+[settings]
+idiomatic_version_file_enable_tools = ["ruby"]
+
+[settings.ruby]
+
+[tools]
+bun = "latest"
+java = "openjdk-25"
+node = "24.11.0"
+npm = "latest"
+odin = "latest"
+pnpm = "latest"
+zig = "latest"

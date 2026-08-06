@@ -15,8 +15,43 @@ waybar
 neovim
 herdr
 
-# browser. AUR, like herdr — see the yay note in install.sh.
+# browsers. zen is the daily one; chromium is for Electron-style web apps
+# (Slack, Spotify) so they don't each ship their own runtime.
+# zen-browser-bin is AUR, like herdr — see the yay note in install.sh.
 zen-browser-bin
+chromium
+
+# runtime version manager — config.toml pins node/bun/zig/etc per project
+mise
+
+# API client (AUR) and the game engine
+bruno-bin
+godot
+
+# file transfer to phones/laptops on the LAN (AUR; the non-bin one builds
+# Flutter from source, which takes an age)
+localsend-bin
+
+# viewers. zathura needs a backend to open anything — mupdf is the light one.
+# imv is configured under config/imv; mpv is used as shipped.
+zathura
+zathura-pdf-mupdf
+imv
+mpv
+
+# imv's Ctrl+r bind shells out to mogrify, and its Ctrl+p bind to lp
+imagemagick
+
+# printing. cups is the daemon (install.sh enables it), system-config-printer
+# is the GUI that "print settings" actually means.
+cups
+system-config-printer
+
+# lstopo — hardware topology
+hwloc
+
+# remote-viewer, for SPICE/VNC guests
+virt-viewer
 
 # what nvim and herdr actually shell out to. LazyVim's pickers are ripgrep and
 # fd; herdr's prefix+n / prefix+shift+g popups are yazi and lazygit; unzip is

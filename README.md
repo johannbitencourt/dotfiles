@@ -16,6 +16,8 @@ config/fuzzel/fuzzel.ini    launcher
 config/mako/config          notifications (symlink into the current theme)
 config/nvim/                LazyVim; lua/plugins/theme.lua rides the theme switch
 config/herdr/config.toml    terminal workspaces (prefix ctrl+a) — config only
+config/mise/config.toml     pinned tool versions (node, bun, zig, java, …)
+config/imv/config           image viewer keybinds (print, delete, rotate)
 config/themes/current       symlink naming the active theme — see Themes below
 config/themes/tokyo-*/      one colour file per app, per theme
 etc/systemd/network/*       DHCP for wifi and ethernet (copied into /etc)
@@ -75,10 +77,22 @@ DKMS entirely and is less to maintain.
 Nothing in `packages.txt` is kernel-coupled — it's all userspace, so the desktop
 is identical on `linux`, `linux-zen`, or `linux-cachyos`. The kernel, its
 headers, the bootloader, and the CachyOS repos themselves are install-time
-concerns this repo deliberately stays out of. Note that `linux-cachyos`,
-`cachyos-settings`, `chwd`, and `uksmd` are **not** reachable from Arch's repos —
-they need `cachyos-keyring` and the CachyOS repo stanza in `pacman.conf` first
-(or an AUR build, which is a long compile).
+concerns this repo deliberately stays out of.
+
+`linux-cachyos`, `cachyos-settings`, `chwd`, and `uksmd` are **not** in Arch's
+own repos — a fresh minimal Arch reaches them only after adding CachyOS's, which
+their script does in one step:
+
+```bash
+curl https://mirror.cachyos.org/cachyos-repo.tar.xz | tar xJ && \
+    cd cachyos-repo && sudo ./cachyos-repo.sh
+sudo pacman -S linux-cachyos linux-cachyos-headers
+```
+
+That adds `cachyos`, `cachyos-core-v3`, and `cachyos-extra-v3`, which also carry
+`-O3`/`x86-64-v3` rebuilds of ordinary Arch packages. Install the headers in the
+same transaction as the kernel, or `nvidia-open-dkms` has nothing to build
+against.
 
 Two optional extras that pair well with it, both in Arch's own `extra`:
 
