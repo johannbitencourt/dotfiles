@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "johann.cpu",
+  "name": "CPU usage",
+  "version": "1.0.0",
+  "author": "Johann",
+  "description": "CPU percentage for the top bar",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "CPU usage",
+    "description": "Current CPU utilization",
+    "category": "System",
+    "allowMultiple": false
+  }
+}
