@@ -1,0 +1,30 @@
+#!/bin/sh
+set -eu
+
+id=linux
+name=Linux
+id_like=
+if [ -r /etc/os-release ]; then
+  id=$(sed -n 's/^ID=//p' /etc/os-release | tr -d '"' | head -n 1)
+  name=$(sed -n 's/^PRETTY_NAME=//p' /etc/os-release | tr -d '"' | head -n 1)
+  id_like=$(sed -n 's/^ID_LIKE=//p' /etc/os-release | tr -d '"' | head -n 1)
+fi
+
+case ${1:-id} in
+  id) printf '%s\n' "$id" ;;
+  name) printf '%s\n' "$name" ;;
+  family)
+    case "$id" in
+      arch|endeavouros|manjaro) printf 'arch\n' ;;
+      void) printf 'void\n' ;;
+      *)
+        case " $id_like " in
+          *' arch '*) printf 'arch\n' ;;
+          *' void '*) printf 'void\n' ;;
+          *) printf '%s\n' "$id" ;;
+        esac
+        ;;
+    esac
+    ;;
+  *) exit 2 ;;
+esac

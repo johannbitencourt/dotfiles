@@ -1,0 +1,13 @@
+{
+  "background": "#d9282a36",
+  "surface": "#ed44475a",
+  "surfaceHover": "#ff6272a4",
+  "foreground": "#f8f8f2",
+  "muted": "#6272a4",
+  "accent": "#8be9fd",
+  "warning": "#f1fa8c",
+  "critical": "#ff5555",
+  "border": "#35f8f8f2",
+  "fontFamily": "monospace",
+  "fontSize": 12
+}

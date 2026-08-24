@@ -1,240 +1,186 @@
-# dotfiles — minimal Hyprland
+# dotfiles: Hyprland on Arch and Void
 
-A small Hyprland desktop. The Hyprland config is Lua
-(`config/hypr/hyprland.lua`), not hyprlang — hyprlang was deprecated in
-Hyprland 0.55 and is slated for removal around 0.57.
+A small Hyprland desktop shared by Arch Linux and Void Linux. Hyprland is
+configured with Lua; hyprlock and hypridle retain their own hyprlang formats.
+The desktop runs the standalone Quickshell configuration in `config/quickshell/`
+when its `shell.qml` exists, while the tracked Waybar installation and
+configuration remain a complete fallback.
 
-**0.57 has not been released.** As of August 2026 the latest tag is v0.56.2 and
-the 0.57 milestone has no due date, so being "0.57-ready" means exactly one
-thing: the config is written in Lua, which is the format that survives the
-hyprlang removal whenever it lands. Every `hl.*` call and every `hl.config` key
-used here is checked against the API stub the installed package ships
-(`/usr/share/hypr/stubs/hl.meta.lua`), so it is current for what exists today.
-`hyprlock.conf` and `hypridle.conf` stay hyprlang on purpose — hyprlock and
-hypridle are separate projects with their own config format, unaffected by
-Hyprland's deprecation.
+## Layout
 
-When 0.57 does land, two things are worth rechecking: whether any `hl.config`
-keys were renamed (0.55 removed `dwindle:pseudotile` and others), and whether
-the `hl.dsp.*` dispatcher names shifted. Both are one-file fixes here.
-
-```
-config/hypr/hyprland.lua    entry point: monitors, env, and the requires below
-config/hypr/looknfeel.lua   borders, gaps, decoration, animation curves
-config/hypr/input.lua       keyboard, pointer, touchpad, gestures
-config/hypr/rules.lua       window and layer rules
-config/hypr/autostart.lua   what starts with the session
-config/hypr/bindings.lua    every keybind
-config/hypr/hyprlock.conf   lock screen (hyprlock is separate, still hyprlang)
-config/hypr/hypridle.conf   lock at 5 min, screen off at 6 min
-config/waybar/config.jsonc  bar: workspaces, window, clock, tray, bluetooth,
-                            network, volume, cpu, battery
-config/waybar/style.css     bar layout (colours come from the theme)
-config/foot/foot.ini        terminal
-config/fuzzel/fuzzel.ini    launcher
-config/mako/config          notifications (symlink into the current theme)
-config/nvim/                LazyVim; lua/plugins/theme.lua rides the theme switch
-                            (from the LazyVim starter — its Apache LICENSE stays)
-config/herdr/config.toml    terminal workspaces (prefix ctrl+a) — config only,
-                            herdr itself is an optional AUR extra
-config/mise/config.toml     tool versions — node pinned, the rest track latest
-config/imv/config           image viewer keybinds (print, delete, rotate)
-config/themes/current       symlink naming the active theme — see Themes below
-config/themes/tokyo-*/      one colour file per app, per theme
-etc/systemd/network/*       DHCP for wifi and ethernet (copied into /etc)
-packages.txt                what to install
-install.sh                  installs packages, symlinks config/* into ~/.config/*
+```text
+install.sh                    distro detection, packages, services, config links
+packages/arch.txt             Arch package names
+packages/void.txt             Void package names
+etc/systemd/network/          Arch networkd DHCP matches
+config/hypr/                  Hyprland Lua, lock, and idle configuration
+config/quickshell/            standalone bar, widgets, panels, and platform adapters
+config/waybar/                fallback bar configuration
+config/themes/*/              per-application theme files, including quickshell.json
+config/{foot,fuzzel,mako,...} application configuration
 ```
 
-Started by `hyprland.lua`'s `hyprland.start` handler: `mako` (notifications),
-`foot --server`, `waybar`, `hypridle`, `swaybg` (solid colour, so the repo
-carries no image asset), `hyprpolkitagent` (GUI auth prompts), and a
-`wl-paste --watch cliphist store` clipboard watcher. `grim` and `slurp` have no
-config and no daemon — they run per screenshot, and installing them is also what
-makes the desktop portal's screenshot and screencast path work for other apps.
+The installer treats Quickshell as a normal config directory and links it to
+`$XDG_CONFIG_HOME/quickshell` (normally `~/.config/quickshell`). Session startup
+checks for the standard `shell.qml` entry point rather than assuming the
+directory is usable; removing or renaming that entry point selects Waybar.
 
 ## Prerequisites
 
-`packages.txt` covers the desktop, but it can't bootstrap the things needed to
-run `install.sh` in the first place. The `base` metapackage has no `sudo`, no
-`git`, no editor, and no pager — so `man` doesn't work and `pacman -Si` can't
-page. `linux-firmware` is only an *optional* dep of the kernel, and without it
-the wifi and bluetooth radios never appear, which makes `impala` and `bluetui`
-useless. On a minimal Arch install, first:
+Run `install.sh` as a normal user with `sudo` configured. A minimal installation
+also needs Git to obtain this repository and suitable kernel firmware and
+graphics drivers for the machine.
+
+Arch example:
 
 ```bash
-pacman -S --needed sudo git less nano man-db man-pages linux-firmware base-devel
+sudo pacman -S --needed sudo git less man-db man-pages linux-firmware base-devel
 ```
 
-**No AUR helper is needed.** Every one of the 54 names in `packages.txt` comes
-from `core`, `extra`, or `multilib`, so `pacman` installs the whole list on a
-stock Arch system with no third-party repos and no `makepkg`. That's deliberate:
-an AUR helper is one more thing to bootstrap, and it breaks on every `libalpm`
-soname bump until you rebuild it.
-
-### Optional AUR extras
-
-Four things this setup can use are AUR-only and are **not** installed by
-`install.sh`. Nothing here depends on them — skip the whole section if you like:
-
-| Package | What it is | Note |
-| --- | --- | --- |
-| `herdr` | terminal workspaces | `config/herdr/config.toml` is tracked, so it's configured the moment you install it |
-| `zen-browser-bin` | browser | `chromium` is in `packages.txt` and covers browsing either way |
-| `bruno-bin` | API client | no official-repo equivalent |
-| `localsend-bin` | LAN file transfer | the non-`bin` build compiles Flutter from source |
-
-To install any of them you need an AUR helper, which `base-devel` above is for:
+Void example:
 
 ```bash
-git clone https://aur.archlinux.org/paru-bin.git && cd paru-bin && makepkg -si
-paru -S herdr
+sudo xbps-install -Suy
+sudo xbps-install sudo git less man-pages linux-firmware
 ```
 
-`paru-bin` rather than `paru` because the latter builds from source and pulls in
-the whole Rust toolchain to do it. If a prebuilt `paru` ever fails with
-`libalpm.so.NN: cannot open shared object file`, it was built against an older
-pacman — rebuild it from `paru.git`, which compiles against the `libalpm` you
-actually have.
-
-**Graphics drivers are not in `packages.txt`** — they're host hardware, not
-desktop config, and they're the one part of this setup that is coupled to which
-kernel you booted. `hyprland` satisfies its `opengl-driver` dependency with
-`mesa`, which is right for Intel and AMD and wrong for NVIDIA. This host is an
-NVIDIA RTX 3060 Mobile with no iGPU, and runs:
-
-```bash
-sudo pacman -S --needed nvidia-open-dkms nvidia-utils
-```
-
-`nvidia-open-dkms` pulls in `dkms` (and so `gcc`, `make`), and needs the headers
-for your running kernel installed *first* — `linux-headers`, or
-`linux-cachyos-headers` on the CachyOS kernel. The prebuilt `nvidia-open`
-package is compiled against `extra/linux` and will not load on a CachyOS
-kernel. CachyOS also ships prebuilt `linux-cachyos-nvidia-open`, which skips
-DKMS entirely and is less to maintain.
-
-### On the CachyOS kernel
-
-Nothing in `packages.txt` is kernel-coupled — it's all userspace, so the desktop
-is identical on `linux`, `linux-zen`, or `linux-cachyos`. The kernel, its
-headers, the bootloader, and the CachyOS repos themselves are install-time
-concerns this repo deliberately stays out of.
-
-`linux-cachyos`, `cachyos-settings`, `chwd`, and `uksmd` are **not** in Arch's
-own repos — a fresh minimal Arch reaches them only after adding CachyOS's, which
-their script does in one step:
-
-```bash
-curl https://mirror.cachyos.org/cachyos-repo.tar.xz | tar xJ && \
-    cd cachyos-repo && sudo ./cachyos-repo.sh
-sudo pacman -S linux-cachyos linux-cachyos-headers
-```
-
-That adds `cachyos`, `cachyos-core-v3`, and `cachyos-extra-v3`, which also carry
-`-O3`/`x86-64-v3` rebuilds of ordinary Arch packages. Install the headers in the
-same transaction as the kernel, or `nvidia-open-dkms` has nothing to build
-against.
-
-Two optional extras that pair well with it, both in Arch's own `extra`:
-
-```bash
-sudo pacman -S --needed scx-scheds ananicy-cpp
-```
-
-`scx-scheds` is the sched_ext scheduler set — `scx_lavd` is the one tuned for
-interactive latency. It needs `CONFIG_SCHED_CLASS_EXT`, which CachyOS enables and
-stock Arch has had since 6.12; check with `ls /sys/kernel/sched_ext`.
-`ananicy-cpp` applies nice/ioclass rules per process.
-
-`cachyos-settings` bundles a set of sysctl/udev defaults including a zram
-config, but installing the CachyOS *kernel* does not pull it in — the two are
-independent. This host takes the plainer route and runs Arch's own
-`zram-generator` package with a short `/etc/systemd/zram-generator.conf`, which
-works the same on any kernel. Check either with `zramctl`.
-
-`cachyos-settings`, `chwd`, `uksmd`, `scx-scheds`, and `ananicy-cpp` are all
-optional and none are installed here. The kernel alone is what this host
-actually uses.
+Graphics drivers, kernels, bootloaders, display managers, and hardware-specific
+firmware are deliberately outside the manifests. For example, NVIDIA packages
+differ by distribution and must match the installed kernel.
 
 ## Install
-
-On a fresh machine, this is the whole thing:
 
 ```bash
 ./install.sh
 ```
 
-It reads `packages.txt` and installs the list with `sudo pacman -S --needed` (so
-it prompts once for your password and skips anything already present). Then it
-copies the `.network` files into `/etc/systemd/network/` if they aren't already
-there, enables iwd/networkd/resolved/bluetooth, and symlinks each directory
-under `config/` to the matching path in `~/.config`, moving any existing real
-directory aside to `<name>.bak` first.
+The installer reads `/etc/os-release` and accepts Arch or Void through `ID` or
+`ID_LIKE`, including Arch derivatives such as Omarchy. It then reads the matching
+file under `packages/`, installs the packages, configures the distro's
+service/network path, and links every directory under `config/` to the matching
+directory in `${XDG_CONFIG_HOME:-$HOME/.config}`. An existing real config
+directory is moved to `<name>.bak`; an existing symlink is replaced.
 
-Every package is in the official repos — no AUR helper needed. The optional AUR
-extras in Prerequisites are yours to install or ignore; `install.sh` never
-touches them.
-
-Wifi is **iwd**, not NetworkManager: `impala` is an iwd frontend
-(`Depends On: iwd`), and the two are competing backends that fight over the
-radio if both run. `iwd` handles association; `systemd-networkd` and
-`systemd-resolved` handle addresses and DNS, and both ship inside `systemd`, so
-they cost no extra package. They do need a `.network` file to match on — systemd
-ships only inert `.example` ones — which is what `etc/systemd/network/` is for.
-Those two files are the only thing this repo puts outside `~/.config`, they're
-copied rather than symlinked (root shouldn't read config from a user-writable
-path), and `cp -n` means a hand-tuned `/etc` survives a re-run.
-
-No file manager, GTK/Qt theme configurator, logout menu, or OSD daemon is
-included. Each is one line in `packages.txt` if you find you want it; none of
-them is needed for the desktop to work.
-
-Neither AUR browser nor `herdr` is configured beyond what's tracked here. A
-`zen-browser` profile lives in `~/.zen`, is 689 MB, and is machine-state rather
-than config. For `herdr`, `config.toml` is tracked, while the sockets, logs, and
-`release-notes.json` that share that directory are not — so installing herdr
-later picks the tracked settings up with no extra step.
-
-Pass `--no-packages` to only do the symlinking. Because the links point at the
-repo, editing a file here takes effect directly. To uninstall, delete the
-symlinks.
-
-## Starting a session
-
-From a TTY, either works — `Hyprland` directly, or the wrapper the package
-ships and the desktop entry uses:
+Use this to install only the config links:
 
 ```bash
-start-hyprland
+./install.sh --no-packages
 ```
 
-### Booting into it
+`--no-packages` does not inspect the distribution or alter system services.
 
-This repo installs no session entry. It doesn't need to: the `hyprland` package
-already ships
-`/usr/share/wayland-sessions/hyprland.desktop`, which runs
-`/usr/bin/start-hyprland`. Both are package-owned, so they survive updates and
-need no maintenance here.
+### Arch package path
 
-Point your display manager at that entry. For SDDM autologin, the session name
-is the desktop file's basename:
+Arch packages come from `packages/arch.txt`. The installer first checks that
+each package is installed or available in an enabled repository, then runs:
 
-```ini
-# /etc/sddm.conf.d/autologin.conf  (root)
-[Autologin]
-User=<you>
-Session=hyprland
+```bash
+sudo pacman -S --needed -- ...
 ```
 
-Nothing else is required — no uwsm, no `systemd --user` target, no session
-wrapper script. Hyprland's own `hyprland.start` handler in `hyprland.lua`
-pushes `WAYLAND_DISPLAY` and `HYPRLAND_INSTANCE_SIGNATURE` into the D-Bus
-activation environment so portals work.
+The manifest includes the existing desktop applications plus Quickshell,
+Waybar, UPower, power-profiles-daemon, `curl`, `jq`, PyGObject, portals,
+PipeWire, network/Bluetooth tools, and the runtime helpers used by bindings.
 
-Note that files under `/etc/sddm.conf.d/` are usually unowned by any package —
-whatever installed your current setup wrote them by hand, so check what's there
-before changing it.
+The installer retains the existing Arch network architecture:
+
+- iwd associates with wireless networks.
+- systemd-networkd obtains addresses for wireless and Ethernet interfaces.
+- systemd-resolved supplies DNS.
+- Root-owned `.network` files are copied from `etc/systemd/network/` with
+  `cp -n`, so an existing file is never overwritten.
+- iwd, networkd, resolved, Bluetooth, CUPS, and power-profiles-daemon are
+  enabled and started with systemd. UPower starts through D-Bus activation.
+
+Optional AUR applications such as `herdr`, `zen-browser-bin`, `bruno-bin`, and
+`localsend-bin` are not installed. Their availability is not required by the
+desktop; the tracked `herdr` config is ready if it is installed separately.
+
+### Void package path
+
+Void packages come from `packages/void.txt`. The installer refreshes repository
+metadata, checks every required name with `xbps-query -R`, and prints the full
+missing-package list before installing anything. Once preflight succeeds it
+runs `xbps-install` for the complete manifest.
+
+Some Hyprland ecosystem packages are not present in every Void repository or
+architecture. Enable a trusted XBPS repository that supplies all names in the
+manifest before running the installer. The installer does not silently build
+packages, substitute an unrelated compositor, or leave a partially installed
+desktop; unavailable required packages are a clear error. The package names in
+`packages/void.txt` are the contract and can be audited before enabling an
+additional repository.
+
+The Void manifest uses the small `nerd-fonts-symbols-ttf` package rather than
+the 1.5 GB all-font aggregate. Quickshell asks Fontconfig for `monospace`, then
+uses the symbols font as a fallback for bar glyphs.
+
+Void uses its native non-systemd network path:
+
+- iwd handles association, DHCP, and route setup with
+  `EnableNetworkConfiguration=true`.
+- iwd sends DNS information to openresolv with
+  `NameResolvingService=resolvconf`.
+- `/etc/iwd/main.conf` is created only when absent. Existing administrator or
+  user configuration is reported and preserved unchanged.
+- The installer only creates missing `/var/service/<name>` symlinks for `dbus`,
+  `iwd`, `bluetoothd`, `cupsd`, and `power-profiles-daemon`. Existing files and
+  links are never replaced. A missing `/etc/sv/<name>` is treated as an error.
+- UPower is available through system D-Bus activation and does not need a
+  persistent service link.
+
+If an existing Void iwd configuration does not enable built-in network
+configuration, another DHCP client must provide addresses. Do not run two DHCP
+stacks on the same interface. Likewise, if the existing configuration names a
+different DNS manager, keep that manager rather than adding the openresolv
+setting blindly.
+
+## Session Startup
+
+Start the package-provided Hyprland session from a display manager or a TTY. The
+session's `hyprland.start` handler starts:
+
+- mako, the foot server, hypridle, swaybg, and the cliphist watcher
+- PipeWire, pipewire-pulse, and WirePlumber directly on Void; Arch continues to
+  use its systemd user units
+- a polkit agent, preferring the hyprpolkitagent user unit/binary and falling
+  back to Void's polkit-gnome agent
+- Quickshell with exactly `qs -d -n` when the standard standalone
+  `quickshell/shell.qml` exists
+- Waybar otherwise
+
+Waybar remains installed and configured on both distributions. To force the
+fallback, move the standalone `shell.qml` out of the standard location and log
+in again. To start Quickshell, place a valid standalone config there and restart
+the session (or run `qs -d -n`).
+
+The handler always imports Wayland and Hyprland variables with
+`dbus-update-activation-environment`. On systemd it additionally imports them
+into the user manager; on Void it does not require or invoke a systemd user
+session. This lets D-Bus-activated portals inherit `WAYLAND_DISPLAY`,
+`XDG_CURRENT_DESKTOP`, `XDG_SESSION_TYPE`, and
+`HYPRLAND_INSTANCE_SIGNATURE` on either init system.
+
+## Themes
+
+`config/themes/current` points to the active theme. Each theme contains native
+configuration for foot, fuzzel, mako, Hyprland, hyprlock, Neovim, Waybar, and
+swaybg, plus `quickshell.json` with the keys consumed by `Theme.qml`:
+
+```text
+background surface surfaceHover foreground muted accent warning critical border
+fontFamily fontSize
+```
+
+Quickshell reads `~/.config/themes/current/quickshell.json` directly; `jq`
+remains available for helper scripts and validation. The shipped palettes are
+`aura`, `tokyo-day`, and `tokyo-night`.
+
+`SUPER+SHIFT+T` selects a theme, updates `themes/current`, reloads mako and
+Hyprland, and calls Quickshell's `dotbar.reloadTheme` IPC endpoint. If IPC is
+unavailable it restarts the default Quickshell instance. If no standalone
+Quickshell config exists, it sends Waybar `SIGUSR2` instead. Waybar colors
+continue to come from each theme's `waybar.css`.
 
 ## Keybindings
 
@@ -242,95 +188,46 @@ before changing it.
 
 | Bind | Action |
 | --- | --- |
-| `Return` | terminal (foot) |
-| `Space` | launcher (fuzzel) |
-| `L` | lock (hyprlock) |
+| `Return` | foot terminal |
+| `Space` | fuzzel launcher |
+| `L` | lock |
 | `W` | close window |
 | `F` | fullscreen |
 | `V` | toggle floating |
-| `SHIFT + E` | exit Hyprland |
-| `SHIFT + Q` | power menu (suspend / reboot / poweroff, via fuzzel) |
-| `S` | show/hide the scratchpad workspace |
-| `SHIFT + M` | move window to the scratchpad |
-| `SHIFT + S` | screenshot region to clipboard |
-| `Print` | screenshot whole screen to `~/Pictures` |
-| `SHIFT + V` | clipboard history (cliphist via fuzzel) |
-| `SHIFT + T` | theme picker |
-| `SHIFT + N` | night light on/off (hyprsunset, 4000K) |
-| `B` | status notification: time, battery, network |
-| arrows | move focus |
+| `SHIFT+E` | exit Hyprland |
+| `SHIFT+Q` | suspend/reboot/poweroff menu |
+| `SHIFT+S` | region screenshot to clipboard |
+| `Print` | full screenshot to `~/Pictures` |
+| `SHIFT+V` | clipboard history |
+| `SHIFT+T` | theme picker and shell/bar reload |
+| `SHIFT+N` | night-light toggle |
+| `B` | time, battery, and network notification |
+| `S` | toggle scratchpad |
+| `SHIFT+M` | move window to scratchpad |
+| arrows | focus direction |
 | `SHIFT` + arrows | move window |
-| `1`–`5` | switch workspace |
-| `SHIFT` + `1`–`5` | move window to workspace |
-| drag / right-drag | move / resize window |
+| `1` to `5` | switch workspace |
+| `SHIFT+1` to `SHIFT+5` | move window to workspace |
 
-Volume, brightness, and media function keys are bound too, and the volume and
-brightness ones keep working while the lock screen is up.
+The power menu uses systemd on Arch and elogind's `loginctl` on Void, with
+Void's `zzz` as a suspend-only fallback. It reports an unavailable action rather
+than assuming `systemctl` exists. Volume, brightness, and media keys are also
+configured and remain active while locked.
 
-## Themes
+## Validation
 
-`config/themes/current` is a symlink naming the active theme, and flipping it is
-the entire mechanism — there is no generator and nothing is templated. Each app
-pulls its colours out of `current/` through its own native include:
+Check the installer and JSON files without changing the machine:
 
-| App | How |
-| --- | --- |
-| foot, fuzzel | `include=~/.config/themes/current/…` |
-| hyprlock | `source = …`, then `$bg` / `$fg` / `$accent` / `$field` |
-| waybar | `@import url(…)`, theme supplies `@foreground` / `@background` |
-| mako | `config/mako/config` *is* a symlink — mako has no include |
-| nvim | `lua/plugins/theme.lua` *is* a symlink, returning a LazyVim spec |
-| Hyprland | `hyprland.lua` `dofile`s `current/hyprland.lua` for border colours |
-| swaybg | `swaybg -c "$(cat …/current/background)"` — one hex per theme |
+```bash
+bash -n install.sh
+jq empty config/themes/*/quickshell.json
+```
 
-`SUPER+SHIFT+T` lists the theme directories in fuzzel, repoints `current`, then
-reloads in place everything that can: mako, waybar, and Hyprland itself via
-`hyprctl reload`. foot, fuzzel, hyprlock and nvim pick the new colours up the
-next time they launch.
+If Lua 5.4 is installed, Hyprland modules can also be parsed with:
 
-Three themes ship: `tokyo-night`, `tokyo-day`, and `aura` (ported from the
-Omarchy theme of the same name). To add a fourth, copy any of them and edit the
-eight files — it shows up in the picker with no other change.
+```bash
+luac -p config/hypr/*.lua
+```
 
-`neovim.lua` names a plugin as well as a colourscheme, so a theme can bring its
-own: `tokyo-*` use `folke/tokyonight.nvim`, and `aura` — which is the Dracula
-palette — uses `Mofiqul/dracula.nvim`. lazy.nvim installs whichever the active
-theme asks for on next launch.
-
-Two things deliberately stay put across a switch. **herdr** keeps its own
-`catppuccin` theme: it has no include mechanism, so following the switch would
-mean rewriting `config.toml` on every theme change. And **waybar's battery
-warning and critical colours** are fixed — a flat battery is a flat battery
-whatever the palette.
-
-One side effect worth knowing: `themes/current` is tracked in git, so switching
-themes leaves `git status` dirty. That's the cost of the symlink being the
-mechanism rather than a generated file.
-
-The one thing deliberately not themed is waybar's critical-battery red: critical
-is critical whatever the palette.
-
-## Changing things
-
-`config/hypr/hyprland.lua` is the entry point — monitors, environment, and five
-`require()`s. Each of those is its own Lua scope, so a syntax error in one file
-costs you that file's settings rather than the session. Upstream recommends this
-split in the comments of its own example config.
-
-| File | Holds |
-| --- | --- |
-| `looknfeel.lua` | borders, gaps, decoration, animation curves |
-| `input.lua` | keyboard, pointer, touchpad, gestures |
-| `rules.lua` | window and layer rules |
-| `autostart.lua` | the `hyprland.start` handler |
-| `bindings.lua` | keybinds |
-
-The full Lua API is stubbed at `/usr/share/hypr/stubs/hl.meta.lua`, and
-upstream's annotated example config at `/usr/share/hypr/hyprland.lua` is worth
-reading — it has ready-made blocks for gestures, window rules, and per-device
-input settings.
-
-To add another autostarted program, write its config under `config/` and add one
-`hl.exec_cmd("…")` line to the `hyprland.start` handler. Check it before you
-restart into it — `luac -p config/hypr/*.lua` catches the syntax errors that
-would otherwise greet you as a black screen.
+Package and service installation must be tested on the target distribution;
+`--no-packages` is the non-privileged way to exercise only config linking.

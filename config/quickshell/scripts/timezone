@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+
+if command -v omarchy-menu-timezone >/dev/null 2>&1; then
+  exec omarchy-menu-timezone
+fi
+
+picker=
+for candidate in fuzzel wofi rofi; do
+  if command -v "$candidate" >/dev/null 2>&1; then picker=$candidate; break; fi
+done
+[ -n "$picker" ] || exit 0
+
+case $picker in
+  fuzzel) zone=$(timedatectl list-timezones | fuzzel --dmenu --prompt='Timezone: ') ;;
+  wofi) zone=$(timedatectl list-timezones | wofi --dmenu --prompt='Timezone: ') ;;
+  *) zone=$(timedatectl list-timezones | rofi -dmenu -p 'Timezone') ;;
+esac
+[ -n "${zone:-}" ] || exit 0
+exec xdg-terminal-exec sh -lc "timedatectl set-timezone '$zone'; exec sh"

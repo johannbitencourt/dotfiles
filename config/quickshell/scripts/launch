@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+
+case ${1:-launcher} in
+  launcher)
+    for launcher in fuzzel wofi rofi bemenu-run; do
+      command -v "$launcher" >/dev/null 2>&1 && exec "$launcher"
+    done
+    exit 127
+    ;;
+  *) exit 2 ;;
+esac

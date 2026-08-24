@@ -1,0 +1,73 @@
+# Void Linux packages. Blank lines and comments are ignored by install.sh.
+# Hyprland packages may require an additional XBPS repository. install.sh
+# checks every name against the repositories enabled on the host before install.
+
+# Hyprland desktop and configured applications
+hyprland
+foot
+fuzzel
+mako
+hyprlock
+hypridle
+hyprsunset
+waybar
+quickshell
+neovim
+chromium
+mise
+godot
+zathura
+zathura-pdf-mupdf
+imv
+mpv
+ImageMagick
+cups
+system-config-printer
+btop
+papirus-icon-theme
+hwloc
+virt-viewer
+ripgrep
+fd
+lazygit
+yazi
+unzip
+swaybg
+grim
+slurp
+brightnessctl
+libnotify
+qt6-wayland
+cliphist
+pavucontrol
+playerctl
+
+# Network, Bluetooth, power, and desktop services
+dbus
+elogind
+iwd
+openresolv
+impala
+bluez
+bluetui
+upower
+power-profiles-daemon
+
+# Fonts and desktop plumbing
+nerd-fonts-symbols-ttf
+noto-fonts-ttf
+noto-fonts-emoji
+xdg-user-dirs
+wl-clipboard
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+polkit-gnome
+pipewire
+alsa-pipewire
+libspa-bluetooth
+wireplumber
+
+# Helpers used by the shell and installer-facing integrations
+curl
+jq
+python3-gobject

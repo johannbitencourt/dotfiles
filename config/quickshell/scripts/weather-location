@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+
+state_dir=${XDG_STATE_HOME:-"$HOME/.local/state"}/quickshell
+state_file=$state_dir/weather-location
+
+case ${1:-get} in
+  get) [ -s "$state_file" ] && cat "$state_file" || : ;;
+  set)
+    mkdir -p "$state_dir"
+    if [ -n "${2:-}" ]; then printf '%s\n' "$2" > "$state_file"; else rm -f "$state_file"; fi
+    ;;
+  *) exit 2 ;;
+esac

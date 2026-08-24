@@ -1,0 +1,21 @@
+#!/bin/sh
+set -eu
+
+command_text=${1:-}
+if command -v xdg-terminal-exec >/dev/null 2>&1; then
+  if [ -n "$command_text" ]; then exec xdg-terminal-exec sh -lc "$command_text; printf '\nPress Enter to close...'; read answer"; else exec xdg-terminal-exec; fi
+elif [ -n "${TERMINAL:-}" ] && command -v "$TERMINAL" >/dev/null 2>&1; then
+  terminal=$TERMINAL
+else
+  for candidate in footclient foot alacritty kitty ghostty wezterm xterm; do
+    if command -v "$candidate" >/dev/null 2>&1; then terminal=$candidate; break; fi
+  done
+fi
+[ -n "${terminal:-}" ] || exit 127
+[ -n "$command_text" ] || exec "$terminal"
+
+case "$terminal" in
+  footclient|foot|kitty|wezterm|xterm) exec "$terminal" -e sh -lc "$command_text; printf '\nPress Enter to close...'; read answer" ;;
+  alacritty) exec "$terminal" -e sh -lc "$command_text; printf '\nPress Enter to close...'; read answer" ;;
+  ghostty) exec "$terminal" -e sh -lc "$command_text; printf '\nPress Enter to close...'; read answer" ;;
+esac

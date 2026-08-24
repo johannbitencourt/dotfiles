@@ -1,0 +1,29 @@
+#!/bin/sh
+set -eu
+
+if command -v omarchy-powerprofiles-list >/dev/null 2>&1; then
+  case ${1:-get} in
+    get) omarchy-powerprofiles-list --active-state | awk '$2 == 1 { print $1; exit }' ;;
+    list) omarchy-powerprofiles-list --active-state | cut -f1 ;;
+    set) exec omarchy-powerprofiles-set "${3:-ac}" "$2" ;;
+    *) exit 2 ;;
+  esac
+  exit 0
+fi
+
+command -v powerprofilesctl >/dev/null 2>&1 || {
+  case ${1:-get} in get) printf 'unavailable\n' ;; list) : ;; esac
+  exit 0
+}
+
+case ${1:-get} in
+  get) powerprofilesctl get 2>/dev/null || printf 'unavailable\n' ;;
+  list) powerprofilesctl list 2>/dev/null | sed -n 's/^[* ]*\([^:][^:]*\):$/\1/p' ;;
+  set)
+    case ${2:-} in
+      power-saver|balanced|performance) exec powerprofilesctl set "$2" ;;
+      *) exit 2 ;;
+    esac
+    ;;
+  *) exit 2 ;;
+esac

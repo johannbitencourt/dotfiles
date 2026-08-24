@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+
+case ${1:-} in
+  text)
+    command -v omarchy-display-text-size >/dev/null 2>&1 || exit 0
+    exec omarchy-display-text-size "$2"
+    ;;
+  scale)
+    if command -v omarchy-hyprland-monitor-scaling >/dev/null 2>&1; then
+      exec omarchy-hyprland-monitor-scaling "$3"
+    fi
+    exec hyprctl keyword monitor "$2,preferred,auto,$3"
+    ;;
+  state) exec hyprctl -j monitors all ;;
+  enable) exec hyprctl keyword monitor "$2,preferred,auto,auto" ;;
+  disable)
+    enabled=$(hyprctl -j monitors all | jq '[.[] | select(.disabled == false)] | length')
+    [ "$enabled" -gt 1 ] || { printf 'Cannot disable the final enabled display\n' >&2; exit 1; }
+    exec hyprctl keyword monitor "$2,disable"
+    ;;
+  *) exit 2 ;;
+esac

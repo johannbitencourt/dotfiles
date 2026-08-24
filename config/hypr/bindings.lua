@@ -7,10 +7,15 @@ hl.bind(mod .. " + W",         hl.dsp.window.close())
 hl.bind(mod .. " + F",         hl.dsp.window.fullscreen())
 hl.bind(mod .. " + V",         hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mod .. " + SHIFT + E", hl.dsp.exit())
--- Power menu. Escaping fuzzel leaves no argument at all (unquoted expansion),
--- so systemctl just lists units instead of doing anything.
+-- Power menu. elogind's loginctl provides the same interface on Void; zzz is a
+-- final Void fallback for suspend if elogind is not running.
 hl.bind(mod .. " + SHIFT + Q", hl.dsp.exec_cmd(
-	"systemctl $(printf 'suspend\\nreboot\\npoweroff' | fuzzel --dmenu)"))
+	"a=$(printf 'suspend\\nreboot\\npoweroff' | fuzzel --dmenu) || exit; "
+	.. "[ -n \"$a\" ] || exit; "
+	.. "if [ -d /run/systemd/system ]; then systemctl \"$a\"; "
+	.. "elif command -v loginctl >/dev/null 2>&1; then loginctl \"$a\"; "
+	.. "elif [ \"$a\" = suspend ] && command -v zzz >/dev/null 2>&1; then zzz; "
+	.. "else notify-send 'Power action unavailable' \"Cannot run $a on this system\"; fi"))
 
 for _, dir in ipairs({ "left", "right", "up", "down" }) do
 	hl.bind(mod .. " + " .. dir,         hl.dsp.focus({ direction = dir }))
@@ -39,14 +44,19 @@ hl.bind(mod .. " + SHIFT + V", hl.dsp.exec_cmd(
 	"cliphist list | fuzzel --dmenu | cliphist decode | wl-copy"))
 
 -- Theme picker. Flips themes/current, then nudges everything that can reload in
--- place: mako, waybar, and Hyprland itself (which re-reads the theme's border
+-- place: mako, Quickshell (or Waybar fallback), and Hyprland itself (which
+-- re-reads the theme's border
 -- colours through hyprland.lua's dofile). foot, fuzzel, hyprlock and nvim read
 -- the theme on next launch.
 hl.bind(mod .. " + SHIFT + T", hl.dsp.exec_cmd(
 	-- -type d excludes `current` itself, which is a symlink.
 	"cd ~/.config/themes && t=$(find . -maxdepth 1 -type d ! -name . -printf '%f\\n' "
 	.. "| sort | fuzzel --dmenu) && ln -sfn \"$t\" current "
-	.. "&& makoctl reload; pkill -SIGUSR2 waybar; hyprctl reload; "
+	.. "&& makoctl reload; "
+	.. "if [ -f \"${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/shell.qml\" ]; then "
+	.. "qs ipc call dotbar reloadTheme >/dev/null 2>&1 "
+	.. "|| { qs kill >/dev/null 2>&1 ||:; qs -d -n; }; "
+	.. "else pkill -SIGUSR2 waybar 2>/dev/null ||:; fi; hyprctl reload; "
 	-- swaybg has no reload, so it gets replaced. Orphaning it is fine — init
 	-- adopts it and it outlives the shell this bind runs in.
 	.. "pkill -x swaybg; c=$(cat ~/.config/themes/current/background 2>/dev/null); "

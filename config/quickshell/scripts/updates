@@ -1,0 +1,34 @@
+#!/bin/sh
+set -eu
+
+dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+family=$($dir/platform family)
+action=${1:-count}
+
+case "$action:$family" in
+  count:arch)
+    if command -v omarchy-update-available >/dev/null 2>&1; then
+      if omarchy-update-available >/dev/null 2>&1; then printf '1\n'; else printf '0\n'; fi
+    elif command -v checkupdates >/dev/null 2>&1; then
+      checkupdates 2>/dev/null | wc -l
+    else
+      pacman -Qu 2>/dev/null | wc -l
+    fi
+    ;;
+  count:void)
+    xbps-install -Mun 2>/dev/null | wc -l
+    ;;
+  run:arch)
+    if command -v omarchy-launch-floating-terminal-with-presentation >/dev/null 2>&1 \
+      && command -v omarchy-update >/dev/null 2>&1; then
+      exec omarchy-launch-floating-terminal-with-presentation omarchy-update
+    elif command -v paru >/dev/null 2>&1; then exec paru
+    elif command -v yay >/dev/null 2>&1; then exec yay
+    else exec sudo pacman -Syu
+    fi
+    ;;
+  run:void) exec sudo xbps-install -Su ;;
+  count:*) printf '0\n' ;;
+  run:*) printf 'Unsupported distribution: %s\n' "$family" >&2; exit 1 ;;
+  *) exit 2 ;;
+esac

@@ -32,7 +32,7 @@ hl.window_rule({
 	center = true,
 })
 
--- Small single-purpose GUIs from packages.txt. Same reasoning.
+-- Small single-purpose GUIs from the package manifests. Same reasoning.
 hl.window_rule({
 	name = "float-utilities",
 	match = { class = "^(pavucontrol|system-config-printer|imv|virt-viewer)$" },

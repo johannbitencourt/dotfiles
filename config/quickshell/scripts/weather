@@ -1,0 +1,52 @@
+#!/bin/sh
+set -eu
+
+query=${1:-}
+key=$(printf '%s' "$query" | cksum | cut -d' ' -f1)
+cache=${XDG_CACHE_HOME:-"$HOME/.cache"}/quickshell/weather-$key.json
+mkdir -p "${cache%/*}"
+if command -v curl >/dev/null 2>&1; then
+  tmp=$cache.tmp.$$
+  if [ -n "$query" ]; then
+    encoded=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1]))' "$query")
+    url="https://wttr.in/$encoded?format=j1"
+  else
+    url='https://wttr.in/?format=j1'
+  fi
+  if curl -fsS --max-time 8 "$url" -o "$tmp" 2>/dev/null; then
+    mv "$tmp" "$cache"
+  else
+    rm -f "$tmp"
+  fi
+fi
+
+if [ ! -s "$cache" ]; then
+  printf '%s\n' '{"current":"--","condition":"","location":"","forecast":[],"error":"Weather unavailable"}'
+  exit 0
+fi
+
+python3 - "$cache" <<'PY'
+import json, sys
+try:
+    raw = json.load(open(sys.argv[1], encoding="utf-8"))
+    now = raw["current_condition"][0]
+    area = raw.get("nearest_area", [{}])[0]
+    loc = ", ".join(x for x in (
+        (area.get("areaName") or [{}])[0].get("value", ""),
+        (area.get("country") or [{}])[0].get("value", "")) if x)
+    forecast = []
+    for day in raw.get("weather", [])[:3]:
+        hourly = day.get("hourly", [])
+        mid = hourly[len(hourly) // 2] if hourly else {}
+        forecast.append({"date": day.get("date", ""), "high": day.get("maxtempC", ""),
+                         "low": day.get("mintempC", ""),
+                         "condition": (mid.get("weatherDesc") or [{}])[0].get("value", "")})
+    print(json.dumps({"current": now.get("temp_C", "--") + "°C",
+                      "condition": (now.get("weatherDesc") or [{}])[0].get("value", ""),
+                      "feelsLike": now.get("FeelsLikeC", "--"),
+                      "humidity": now.get("humidity", "--"),
+                      "wind": " ".join(x for x in (now.get("windspeedKmph", ""), "km/h", now.get("winddir16Point", "")) if x),
+                      "location": loc, "forecast": forecast, "error": ""}))
+except Exception as exc:
+    print(json.dumps({"current":"--","condition":"","location":"","forecast":[],"error":str(exc)}))
+PY

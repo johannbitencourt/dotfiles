@@ -1,0 +1,25 @@
+#!/bin/sh
+set -eu
+
+action=${1:-state}
+if command -v omarchy-shell >/dev/null 2>&1 && omarchy_state=$(omarchy-shell notifications dndState 2>/dev/null); then
+  case "$action" in
+    state) printf 'omarchy:%s\n' "$omarchy_state" ;;
+    toggle) omarchy-shell notifications toggleDnd >/dev/null ;;
+    *) exit 2 ;;
+  esac
+elif command -v makoctl >/dev/null 2>&1 && pgrep -x mako >/dev/null 2>&1; then
+  case "$action" in
+    state) makoctl mode 2>/dev/null | grep -qx 'do-not-disturb' && printf 'mako:on\n' || printf 'mako:off\n' ;;
+    toggle) makoctl mode -t do-not-disturb >/dev/null ;;
+    *) exit 2 ;;
+  esac
+elif command -v dunstctl >/dev/null 2>&1; then
+  case "$action" in
+    state) [ "$(dunstctl is-paused)" = true ] && printf 'dunst:on\n' || printf 'dunst:off\n' ;;
+    toggle) dunstctl set-paused toggle ;;
+    *) exit 2 ;;
+  esac
+else
+  [ "$action" = state ] && printf 'unavailable:off\n'
+fi

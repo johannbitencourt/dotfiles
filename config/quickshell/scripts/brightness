@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+command -v brightnessctl >/dev/null 2>&1 || { printf '0\n'; exit 0; }
+case ${1:-get} in
+  get) brightnessctl -m 2>/dev/null | awk -F, '{ gsub(/%/, "", $4); print $4; exit }' ;;
+  set)
+    value=${2:-50}
+    case "$value" in *[!0-9]*) exit 2 ;; esac
+    brightnessctl -q set "$value%"
+    ;;
+  *) exit 2 ;;
+esac

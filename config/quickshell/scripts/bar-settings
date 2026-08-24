@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+
+state_dir=${XDG_STATE_HOME:-"$HOME/.local/state"}/quickshell
+state_file=$state_dir/bar.json
+
+case ${1:-get} in
+  get)
+    if [ -s "$state_file" ]; then cat "$state_file"; else printf '{"clockFormat":0,"batteryPercentage":true,"calendarMondayFirst":true,"calendarBirthYear":0,"calendarLifeExpectancy":90}\n'; fi
+    ;;
+  set)
+    mkdir -p "$state_dir"
+    tmp=$state_file.tmp.$$
+    printf '%s\n' "$2" > "$tmp"
+    mv "$tmp" "$state_file"
+    ;;
+  *) exit 2 ;;
+esac

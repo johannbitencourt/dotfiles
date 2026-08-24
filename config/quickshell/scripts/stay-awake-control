@@ -1,0 +1,27 @@
+#!/bin/sh
+set -eu
+
+action=${1:-state}
+state_dir=${XDG_STATE_HOME:-"$HOME/.local/state"}/quickshell
+state_file=$state_dir/stay-awake
+
+if command -v omarchy-shell >/dev/null 2>&1 && status=$(omarchy-shell idle status 2>/dev/null); then
+  case $action in
+    state)
+      value=$(printf '%s' "$status" | jq -r 'if .stayAwake then "on" else "off" end')
+      printf 'omarchy:%s\n' "$value"
+      ;;
+    toggle) omarchy-shell idle toggle >/dev/null ;;
+    *) exit 2 ;;
+  esac
+  exit 0
+fi
+
+case $action in
+  state) [ -e "$state_file" ] && printf 'native:on\n' || printf 'native:off\n' ;;
+  toggle)
+    mkdir -p "$state_dir"
+    if [ -e "$state_file" ]; then rm -f "$state_file"; else : > "$state_file"; fi
+    ;;
+  *) exit 2 ;;
+esac
